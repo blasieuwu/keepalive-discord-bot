@@ -1,6 +1,8 @@
 import asyncio
 import os
-import random  # <-- ADDED: keeps random.choice from crashing her
+import random  # <-- KEEPING: keeps random.choice from crashing her
+import threading  # <-- ADDED: handles the background web server thread
+from http.server import SimpleHTTPRequestHandler, HTTPServer  # <-- ADDED: basic server classes
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
@@ -19,6 +21,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # global settings
 target_voice_channel_id = 123456789012345678  # default home channel
 bot_token = os.environ.get("DISCORD_BOT_TOKEN")
+render_port = os.environ.get("PORT")          # <-- ADDED: reads render's network port variable
 
 # the status pool (format: online status, discord note)
 status_pool = [
@@ -174,19 +177,15 @@ async def leave(interaction: discord.Interaction):
 
 @bot.tree.command(name="systemstatus", description="[dev-only] view internal information.")
 async def systemstatus(interaction: discord.Interaction):
-    # SECURITY GATE: blocks any random user from accessing container data
     if interaction.user.id != creator_id:
         await interaction.response.send_message("whoops, you can't access this", ephemeral=True)
         return
         
     await interaction.response.defer(ephemeral=True)
-    
-    # gather standard application framework stats
     total_guilds = len(bot.guilds)
     latency = round(bot.latency * 1000)
     current_vc_connections = len(bot.voice_clients)
     
-    # build a premium debug dashboard card
     embed = discord.Embed(
         title="misoyan developer diagnostics",
         description="some very cool statistics",
@@ -201,17 +200,29 @@ async def systemstatus(interaction: discord.Interaction):
 
 @bot.tree.command(name="systemshutdown", description="[dev-only] completely shuts down misoyan.")
 async def systemshutdown(interaction: discord.Interaction):
-    # SECURITY GATE
     if interaction.user.id != creator_id:
         await interaction.response.send_message("whoops, you can't access this", ephemeral=True)
         return
         
     await interaction.response.send_message("♻️ tearing down pipeline instances and disconnecting gateway sockets securely...")
-    
-    # cleanly logs the bot out of discord's network, which tells railway to restart or stop the worker process
     await bot.close()
 
+# --- RENDER NETWORK PROXY SYSTEM CHECK BYPASS ---
+def run_dummy_server(port):
+    """spins up a dead-simple server on an isolated background thread to keep render awake"""
+    try:
+        server_address = ('0.0.0.0', int(port))
+        httpd = HTTPServer(server_address, SimpleHTTPRequestHandler)
+        print(f"dummy network port verification listener active on port: {port}")
+        httpd.serve_forever()
+    except Exception as e:
+        print(f"dummy listener server error trace: {e}")
+
 if __name__ == "__main__":
+    # if render assigned a network port, spin up the dummy web target layout
+    if render_port:
+        threading.Thread(target=run_dummy_server, args=(render_port,), daemon=True).start()
+
     if bot_token:
         bot.run(bot_token)
     else:
