@@ -15,9 +15,11 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 target_voice_channel_id = 123456789012345678  # default home channel
 bot_token = os.environ.get("DISCORD_BOT_TOKEN")
 
-# the status pool
+# the status pool (format: online status, discord note)
 status_pool = [
-    (discord.Status.online, discord.CustomActivity(name="hanging out in the vc :3"))
+    (discord.Status.online, discord.CustomActivity(name="hanging out in the vc :3")),
+    (discord.Status.idle, discord.CustomActivity(name="waiting for someone to join :c")),
+    (discord.Status.dnd, discord.CustomActivity(name="learning new stuff..."))
 ]
 
 class OpusSilenceSource(discord.AudioSource):
