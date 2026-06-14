@@ -72,6 +72,7 @@ async def on_ready():
         print(f"failed to sync slash commands: {e}")
         
     # ignite the background persistent manager safely inside the loop
+    print("starting main loop (ping)")
     bot.loop.create_task(auto_join_loop())
 
 # --- SLASH COMMANDS REGISTRATION ---
