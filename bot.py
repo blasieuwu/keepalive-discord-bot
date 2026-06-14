@@ -4,7 +4,10 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+# CRITICAL: add message_content intent so the bot can read the word "misoyan"
 intents = discord.Intents.default()
+intents.message_content = True 
+
 # prefix isn't used for slash commands, but required by the constructor
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -27,7 +30,6 @@ def start_silence_loop(vc: discord.VoiceClient):
             
         print("initiating silence keepalive transmission...")
         try:
-            # explicit try block prevents any gateway errors from locking python execution
             vc.play(SilenceSource(), after=lambda e: print(f"stream ended/reset: {e}") if e else None)
         except Exception as e:
             print(f"failed to play silence source: {e}")
@@ -43,18 +45,15 @@ async def auto_join_loop():
             if channel and isinstance(channel, discord.VoiceChannel):
                 vc = discord.utils.get(bot.voice_clients, guild=channel.guild)
                 
-                # if completely disconnected, connect back to target channel
                 if not vc or not vc.is_connected():
                     print(f"auto-connecting/reconnecting to target channel: {channel.name}")
                     vc = await channel.connect(reconnect=True, timeout=20.0)
                     start_silence_loop(vc)
-                # if connected but in the WRONG channel (e.g. pulled away by force or glitch), move back
                 elif vc.channel.id != target_voice_channel_id:
                     print(f"correcting position: moving back to target channel: {channel.name}")
                     await vc.move_to(channel)
                     start_silence_loop(vc)
                 else:
-                    # ensure it's actively streaming silence even if it got interrupted
                     start_silence_loop(vc)
         except Exception as e:
             print(f"exception encountered in auto-join loop: {e}")
@@ -71,17 +70,41 @@ async def on_ready():
     except Exception as e:
         print(f"failed to sync slash commands: {e}")
         
-    # ignite the background persistent manager safely inside the loop
     print("starting main loop (ping)")
     bot.loop.create_task(auto_join_loop())
 
+# --- TEXT LISTENER (MISOYAN -> FIH) ---
+
+@bot.event
+async def on_message(message: discord.Message):
+    # absolute rule: don't reply to other bots or yourself
+    if message.author.bot:
+        return
+
+    # checks if the raw lowercase text contains "misoyan"
+    if "misoyan" in message.content.lower():
+        try:
+            # allowed_mentions=discord.AllowedMentions.none() turns off all reply pings completely
+            await message.reply("fih", allowed_mentions=discord.AllowedMentions.none())
+            print(f"triggered phrase response for user: {message.author.name}")
+        except Exception as e:
+            print(f"failed to send message reply: {e}")
+
+    # ensures standard commands/events don't lock up
+    await bot.process_commands(message)
+
 # --- SLASH COMMANDS REGISTRATION ---
+
+@bot.tree.command(name="ping", description="checks the bot's current connection latency.")
+async def ping(interaction: discord.Interaction):
+    # calculates api gateway response lag in milliseconds
+    latency = round(bot.latency * 1000)
+    await interaction.response.send_message(f"pong! 🏓 (`{latency}ms`)")
 
 @bot.tree.command(name="join", description="makes the bot join your voice channel.")
 async def join(interaction: discord.Interaction):
     global target_voice_channel_id
     
-    # check if the user is inside a voice channel
     if not interaction.user.voice or not interaction.user.voice.channel:
         await interaction.response.send_message("join a voice channel first.", ephemeral=True)
         return
@@ -89,10 +112,7 @@ async def join(interaction: discord.Interaction):
     user_channel = interaction.user.voice.channel
     vc = discord.utils.get(bot.voice_clients, guild=interaction.guild)
     
-    # 1. immediately acknowledge the interaction so discord knows we are alive
     await interaction.response.defer() 
-    
-    # 2. update the tracking state so the auto-join loop doesn't fight the user
     target_voice_channel_id = user_channel.id
     
     try:
@@ -103,10 +123,7 @@ async def join(interaction: discord.Interaction):
             print(f"establishing brand new client connection to: {user_channel.name}")
             vc = await user_channel.connect(reconnect=True, timeout=15.0)
         
-        # 3. immediately respond to the user to clear the "thinking..." animation
         await interaction.followup.send(f"i successfully joined **{user_channel.name}**")
-        
-        # 4. boot up the silence engine dead last
         start_silence_loop(vc)
         
     except Exception as e:
