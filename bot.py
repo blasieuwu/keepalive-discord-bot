@@ -2,7 +2,7 @@ import asyncio
 import os
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 # CRITICAL: add message_content intent so the bot can read the word "misoyan"
 intents = discord.Intents.default()
