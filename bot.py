@@ -10,7 +10,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # global settings
-TARGET_VOICE_CHANNEL_ID = 123456789012345678  # replace with your target vc id
+TARGET_VOICE_CHANNEL_ID = 1454299112181600300  # replace with your target vc id
 BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN")
 
 class SilenceSource(discord.AudioSource):
