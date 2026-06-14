@@ -172,8 +172,8 @@ async def leave(interaction: discord.Interaction):
     else:
         await interaction.response.send_message("i'm not connected to a voice channel.", ephemeral=True)
 
-@bot.tree.command(name="dev-systemstatus", description="[dev-only] view internal information.")
-async def sys_status(interaction: discord.Interaction):
+@bot.tree.command(name="systemstatus", description="[dev-only] view internal information.")
+async def systemstatus(interaction: discord.Interaction):
     # SECURITY GATE: blocks any random user from accessing container data
     if interaction.user.id != creator_id:
         await interaction.response.send_message("whoops, you can't access this", ephemeral=True)
@@ -199,8 +199,8 @@ async def sys_status(interaction: discord.Interaction):
     
     await interaction.followup.send(embed=embed, ephemeral=True)
 
-@bot.tree.command(name="dev-shutdown", description="[dev-only] completely shuts down misoyan.")
-async def sys_purge(interaction: discord.Interaction):
+@bot.tree.command(name="systemshutdown", description="[dev-only] completely shuts down misoyan.")
+async def systemshutdown(interaction: discord.Interaction):
     # SECURITY GATE
     if interaction.user.id != creator_id:
         await interaction.response.send_message("whoops, you can't access this", ephemeral=True)
