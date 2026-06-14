@@ -15,6 +15,11 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 target_voice_channel_id = 123456789012345678  # default home channel
 bot_token = os.environ.get("DISCORD_BOT_TOKEN")
 
+# the status pool
+status_pool = [
+    (discord.Status.online, discord.CustomActivity(name="hanging out in the vc :3"))
+]
+
 class OpusSilenceSource(discord.AudioSource):
     """streams pre-compiled cryptographic voice frames directly to bypass inactivity drops"""
     def __init__(self):
@@ -94,6 +99,22 @@ async def on_ready():
         
     print("starting main loop (ping)")
     bot.loop.create_task(auto_join_loop())
+
+# custom statuses
+@tasks.loop(minutes=2.5)
+async def cycle_status_loop():
+    """background clock loop that shifts her indicator color and custom note simultaneously"""
+    await bot.wait_until_ready()
+    
+    # randomly grab a tuple from our matrix
+    selected_status, selected_note = random.choice(status_pool)
+    
+    try:
+        # change both parameters over the gateway socket in one transmission
+        await bot.change_presence(status=selected_status, activity=selected_note)
+        print(f"shifted misoyan's profile to Status: {selected_status.name} | Note: '{selected_note.name}'")
+    except Exception as e:
+        print(f"failed to cycle status note layout: {e}")
 
 # --- TEXT LISTENER (MISOYAN -> FIH) ---
 
