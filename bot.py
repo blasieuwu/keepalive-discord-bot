@@ -20,9 +20,14 @@ class SilenceSource(discord.AudioSource):
 
 def start_silence_loop(vc: discord.VoiceClient):
     """safely starts feeding the 24/7 silence stream if not already playing"""
-    if vc and vc.is_connected() and not vc.is_playing():
+    if vc and vc.is_connected():
+        if vc.is_playing():
+            print("audio is already actively transmitting. skipping initialization.")
+            return
+            
         print("initiating silence keepalive transmission...")
         try:
+            # explicit try block prevents any gateway errors from locking python execution
             vc.play(SilenceSource(), after=lambda e: print(f"stream ended/reset: {e}") if e else None)
         except Exception as e:
             print(f"failed to play silence source: {e}")
@@ -71,42 +76,51 @@ async def on_ready():
 
 # --- SLASH COMMANDS REGISTRATION ---
 
-@bot.tree.command(name="join", description="summons the bot to your current voice channel.")
+@bot.tree.command(name="join", description="makes the bot join your voice channel.")
 async def join(interaction: discord.Interaction):
     global target_voice_channel_id
     
-    # check if the user is in a vc
+    # check if the user is inside a voice channel
     if not interaction.user.voice or not interaction.user.voice.channel:
-        await interaction.response.send_message("❌ you need to be inside a voice channel first!", ephemeral=True)
+        await interaction.response.send_message("join a voice channel first.", ephemeral=True)
         return
         
     user_channel = interaction.user.voice.channel
     vc = discord.utils.get(bot.voice_clients, guild=interaction.guild)
     
-    await interaction.response.defer() # keeps discord from timing out
+    # 1. immediately acknowledge the interaction so discord knows we are alive
+    await interaction.response.defer() 
     
-    # CRITICAL: update the global tracking id so the auto_join_loop doesn't immediately drag it back
+    # 2. update the tracking state so the auto-join loop doesn't fight the user
     target_voice_channel_id = user_channel.id
     
-    if vc and vc.is_connected():
-        # if already in a channel, move it smoothly
-        await vc.move_to(user_channel)
-    else:
-        # otherwise make a fresh connection
-        vc = await user_channel.connect(reconnect=True)
+    try:
+        if vc and vc.is_connected():
+            print(f"moving existing client connection to: {user_channel.name}")
+            await vc.move_to(user_channel)
+        else:
+            print(f"establishing brand new client connection to: {user_channel.name}")
+            vc = await user_channel.connect(reconnect=True, timeout=15.0)
         
-    start_silence_loop(vc)
-    await interaction.followup.send(f"joined and locked into **{user_channel.name}**! 🔊")
+        # 3. immediately respond to the user to clear the "thinking..." animation
+        await interaction.followup.send(f"i successfully joined **{user_channel.name}**")
+        
+        # 4. boot up the silence engine dead last
+        start_silence_loop(vc)
+        
+    except Exception as e:
+        print(f"fatal crash inside slash join command execution: {e}")
+        await interaction.followup.send(f"failed to join voice channel: {e}", ephemeral=True)
 
-@bot.tree.command(name="leave", description="forces the bot to disconnect from the voice channel.")
+@bot.tree.command(name="leave", description="makes the bot leave your voice channel.")
 async def leave(interaction: discord.Interaction):
     vc = discord.utils.get(bot.voice_clients, guild=interaction.guild)
     
     if vc and vc.is_connected():
         await vc.disconnect()
-        await interaction.response.send_message("👋 successfully disconnected from the voice channel.", ephemeral=True)
+        await interaction.response.send_message("i successfully left the voice channel (yay :3)", ephemeral=True)
     else:
-        await interaction.response.send_message("❌ i'm not currently connected to any voice channels in this server.", ephemeral=True)
+        await interaction.response.send_message("i'm not connected to a voice channel.", ephemeral=True)
 
 if __name__ == "__main__":
     if bot_token:
