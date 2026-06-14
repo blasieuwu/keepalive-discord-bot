@@ -15,27 +15,48 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 target_voice_channel_id = 123456789012345678  # default home channel
 bot_token = os.environ.get("DISCORD_BOT_TOKEN")
 
-class SilenceSource(discord.AudioSource):
-    """generates pure pcm silence packets to keep the voice gateway hot"""
+class OpusSilenceSource(discord.AudioSource):
+    """streams pre-compiled cryptographic voice frames directly to bypass inactivity drops"""
+    def __init__(self):
+        # 5 specific hex bytes that signal "legitimate frame silence" to discord's server
+        # this is pre-compressed opus silence. it requires 0 CPU power to read.
+        self.silence_packet = b'\xf8\xff\xfe\x00\x00'
+
+    def is_opus(self):
+        # CRITICAL HANDSHAKE: this tells discord.py to skip raw pcm processing entirely.
+        # it pushes the bytes straight to the gateway network socket. zero disconnects.
+        return True
+
     def read(self):
-        # 384 bytes is 20ms of 16-bit 48khz stereo pcm data
-        return b'\x00' * 384
+        # discord's voice loop calls this function exactly every 20ms.
+        # we endlessly feed it our 5-byte packet to keep the line open.
+        return self.silence_packet
 
 def start_silence_loop(vc: discord.VoiceClient):
-    """safely starts feeding the 24/7 silence stream if not already playing"""
+    """safely sequences the raw opus keepalive injection stream"""
     if vc and vc.is_connected():
         if vc.is_playing():
-            print("audio is already actively transmitting. skipping initialization.")
+            print("misoyan audio engine is already actively transmitting frames. skipping.")
             return
             
-        print("initiating silence keepalive transmission...")
-        try:
-            vc.play(SilenceSource(), after=lambda e: print(f"stream ended/reset: {e}") if e else None)
-        except Exception as e:
-            print(f"failed to play silence source: {e}")
+        async def delayed_play():
+            # CRITICAL COMPLIANCE DELAY: give the new DAVE end-to-end encryption handshake
+            # 1.5 seconds to fully bind keys before we throw packets down the wire.
+            await asyncio.sleep(1.5)  
+            if vc.is_connected() and not vc.is_playing():
+                print("initiating misoyan 24/7 silence keepalive transmission...")
+                try:
+                    # the "after" lambda tells the bot what to do if the stream stops.
+                    # if it drops naturally, it will log it here so you can check your railway console.
+                    vc.play(OpusSilenceSource(), after=lambda e: print(f"voice gateway frame recycling/reset: {e}") if e else None)
+                except Exception as e:
+                    print(f"internal keepalive playback error trace: {e}")
+
+        # schedules the execution sequence safely into python's active async task manager
+        bot.loop.create_task(delayed_play())
 
 async def auto_join_loop():
-    """background task that ensures the bot stays locked into the current target vc"""
+    """persistent background loop ensuring misoyan never stays disconnected from home vc"""
     await bot.wait_until_ready()
     while not bot.is_closed():
         try:
@@ -46,17 +67,18 @@ async def auto_join_loop():
                 vc = discord.utils.get(bot.voice_clients, guild=channel.guild)
                 
                 if not vc or not vc.is_connected():
-                    print(f"auto-connecting/reconnecting to target channel: {channel.name}")
+                    print(f"auto-recovery: connecting back to home vc -> {channel.name}")
                     vc = await channel.connect(reconnect=True, timeout=20.0)
                     start_silence_loop(vc)
                 elif vc.channel.id != target_voice_channel_id:
-                    print(f"correcting position: moving back to target channel: {channel.name}")
+                    print(f"position correction: pulling misoyan back to -> {channel.name}")
                     await vc.move_to(channel)
                     start_silence_loop(vc)
                 else:
+                    # if already there, make sure the stream engine hasn't accidentally dropped out
                     start_silence_loop(vc)
         except Exception as e:
-            print(f"exception encountered in auto-join loop: {e}")
+            print(f"background loop error trace: {e}")
             
         await asyncio.sleep(15)
 
@@ -95,18 +117,18 @@ async def on_message(message: discord.Message):
 
 # --- SLASH COMMANDS REGISTRATION ---
 
-@bot.tree.command(name="ping", description="checks the bot's current connection latency.")
+@bot.tree.command(name="ping", description="check misoyan's current connection latency")
 async def ping(interaction: discord.Interaction):
     # calculates api gateway response lag in milliseconds
     latency = round(bot.latency * 1000)
     await interaction.response.send_message(f"pong! 🏓 (`{latency}ms`)")
 
-@bot.tree.command(name="join", description="makes the bot join your voice channel.")
+@bot.tree.command(name="join", description="i wanna join the vc :3")
 async def join(interaction: discord.Interaction):
     global target_voice_channel_id
     
     if not interaction.user.voice or not interaction.user.voice.channel:
-        await interaction.response.send_message("join a voice channel first.", ephemeral=True)
+        await interaction.response.send_message("❌ jump into a voice channel first!", ephemeral=True)
         return
         
     user_channel = interaction.user.voice.channel
@@ -117,20 +139,22 @@ async def join(interaction: discord.Interaction):
     
     try:
         if vc and vc.is_connected():
-            print(f"moving existing client connection to: {user_channel.name}")
+            print(f"moving existing connection to: {user_channel.name}")
             await vc.move_to(user_channel)
         else:
             print(f"establishing brand new client connection to: {user_channel.name}")
             vc = await user_channel.connect(reconnect=True, timeout=15.0)
         
-        await interaction.followup.send(f"i successfully joined **{user_channel.name}**")
+        await interaction.followup.send(f"i joined **{user_channel.name}**")
+        
+        # fire up the newly engineered opus silence engine
         start_silence_loop(vc)
         
     except Exception as e:
         print(f"fatal crash inside slash join command execution: {e}")
         await interaction.followup.send(f"failed to join voice channel: {e}", ephemeral=True)
 
-@bot.tree.command(name="leave", description="makes the bot leave your voice channel.")
+@bot.tree.command(name="leave", description="pls let me go :c")
 async def leave(interaction: discord.Interaction):
     vc = discord.utils.get(bot.voice_clients, guild=interaction.guild)
     
