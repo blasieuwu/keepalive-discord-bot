@@ -10,6 +10,9 @@ intents = discord.Intents.default()
 intents.message_content = True 
 intents.voice_states = True     # monitors voice connection states
 
+# YOUR UNIQUE DISCORD NUMERICAL ACCOUNT ID
+creator_id = 891917254789320714
+
 # prefix isn't used for slash commands, but required by the constructor
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -168,6 +171,45 @@ async def leave(interaction: discord.Interaction):
         await interaction.response.send_message("i successfully left the voice channel (yay :3)", ephemeral=True)
     else:
         await interaction.response.send_message("i'm not connected to a voice channel.", ephemeral=True)
+
+@bot.tree.command(name="dev systemstatus", description="[dev-only] view internal information.")
+async def sys_status(interaction: discord.Interaction):
+    # SECURITY GATE: blocks any random user from accessing container data
+    if interaction.user.id != creator_id:
+        await interaction.response.send_message("whoops, you can't access this", ephemeral=True)
+        return
+        
+    await interaction.response.defer(ephemeral=True)
+    
+    # gather standard application framework stats
+    total_guilds = len(bot.guilds)
+    latency = round(bot.latency * 1000)
+    current_vc_connections = len(bot.voice_clients)
+    
+    # build a premium debug dashboard card
+    embed = discord.Embed(
+        title="misoyan developer diagnostics",
+        description="some very cool statistics",
+        color=0x2b2d31
+    )
+    embed.add_field(name="latency", value=f"`{latency}ms`", inline=True)
+    embed.add_field(name="server count", value=f"`{total_guilds} servers`", inline=True)
+    embed.add_field(name="audio streams", value=f"`{current_vc_connections} active streams`", inline=True)
+    embed.set_footer(text="developer security mode active")
+    
+    await interaction.followup.send(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="dev shutdown", description="[dev-only] completely shuts down misoyan.")
+async def sys_purge(interaction: discord.Interaction):
+    # SECURITY GATE
+    if interaction.user.id != creator_id:
+        await interaction.response.send_message("whoops, you can't access this", ephemeral=True)
+        return
+        
+    await interaction.response.send_message("♻️ tearing down pipeline instances and disconnecting gateway sockets securely...")
+    
+    # cleanly logs the bot out of discord's network, which tells railway to restart or stop the worker process
+    await bot.close()
 
 if __name__ == "__main__":
     if bot_token:
