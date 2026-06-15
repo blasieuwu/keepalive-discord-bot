@@ -30,6 +30,15 @@ status_pool = [
     (discord.Status.dnd, discord.CustomActivity(name="learning new stuff..."))
 ]
 
+# misoyan can now say more things
+reply_list = [
+    "fih",
+    "who pinged",
+    "you like fih?",
+    "did someone call my name?",
+    "fih :3"
+]
+
 class OpusSilenceSource(discord.AudioSource):
     """streams pre-compiled cryptographic voice frames directly to bypass inactivity drops"""
     def __init__(self):
@@ -127,7 +136,10 @@ async def on_message(message: discord.Message):
 
     if "misoyan" in message.content.lower() or bot.user.mentioned_in(message):
         try:
-            await message.reply("fih", allowed_mentions=discord.AllowedMentions.none())
+            # randomly pink a response from our list
+            selected_reply = random.choice(reply_list)
+            
+            await message.reply(selected_reply, allowed_mentions=discord.AllowedMentions.none())
             print(f"triggered phrase response for user: {message.author.name}")
         except Exception as e:
             print(f"failed to send message reply: {e}")
