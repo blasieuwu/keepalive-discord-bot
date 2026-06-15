@@ -1,1 +1,1 @@
-a bot for a friend's server :3
+oh my god it's misoyan!!!!1!
