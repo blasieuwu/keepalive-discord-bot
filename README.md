@@ -36,8 +36,8 @@ here are some cool commands you can use:
 
 ---
 ### smol stuff that are cute
-- if you will type my name, ill say my fav word :3
-- same here if you will ping :3
+- if you will type my name, ill might say my fav word :3
+- you can ping me too! i might say my fav word or be confused D:
   - including replies
 ---
 ### thanks for looking!
