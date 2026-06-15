@@ -1,6 +1,15 @@
+
 # hayo there! my name is misoyan and i like fih
 
 im running on **python**, and im here to sit in your comfy vc 24/7
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
+  <img src="https://img.shields.io/badge/Discord.py-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord.py" />
+  <img src="https://img.shields.io/badge/Bot%20Status-Online-brightgreen?style=for-the-badge" alt="Status" />
+  <img src="https://img.shields.io/badge/Maintenance-Yes-blue?style=for-the-badge" alt="Maintained" />
+</p>
+
+
 
 ---
 
