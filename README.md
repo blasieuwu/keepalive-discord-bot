@@ -18,9 +18,12 @@ here are some cool commands you can use:
 
 ## developer-only commands (blasie only)
 
-*   **/say** – i can say whatever you will tell me :3
-*   **/status** – see my cool logs and info :D
-*   **/~~suicide~~** – **dont ever run this on m̶̗̼͕̙͈̙͔̫̗̦̬̈̔̉͊ͅȅ̵̻̟̙͈̗̚͜**
+| command | description |
+| :--- | :--- |
+| `/say` | i can say whatever you will tell me :3 |
+| `/status` | see my cool logs and info :D |
+| `/suicide` | **dont ever run this on m̶̗̼͕̙͈̙͔̫̗̦̬̈̔̉͊ͅȅ̵̻̟̙͈̗̚͜** |
+
 
 ---
 
