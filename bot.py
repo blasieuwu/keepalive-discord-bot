@@ -81,34 +81,40 @@ class FullSystemControlPanel(discord.ui.View):
 
     def update_panel_layout(self):
         """paints the visual styles across both button rows based on your boolean settings"""
-        # ROW 0: CORE MASTER ARCHITECTURE
+        # row 0: the voicelines and every damn festure 
         # holy dramatic nicknaming -kam
-        self.children[0].label = f"all: {'ON' if misoyan_settings['all_features'] else 'OFF'}"
-        self.children[0].style = discord.ButtonStyle.green if misoyan_settings["all_features"] else discord.ButtonStyle.red
+        self.children[0].label = f"all: {'on' if misoyan_settings['all_features'] else 'off'}"
+        self.children[0].style = discord.ButtonStyle.blurple if misoyan_settings["all_features"] else discord.ButtonStyle.grey
 
-        self.children[1].label = f"voicelines: {'ON' if misoyan_settings['fih_replies'] else 'OFF'}"
+        self.children[1].label = f"voicelines: {'on' if misoyan_settings['fih_replies'] else 'off'}"
         self.children[1].style = discord.ButtonStyle.blurple if misoyan_settings["fih_replies"] else discord.ButtonStyle.gray
 
-        # ROW 1: VOICE SUB-SYSTEMS
+        # row 1: vc shit
         # son -kam
-        self.children[2].label = f"vc Join: {'ON' if misoyan_settings['vc_joining'] else 'OFF'}"
-        self.children[2].style = discord.ButtonStyle.green if misoyan_settings["vc_joining"] else discord.ButtonStyle.red
+        self.children[2].label = f"vc join: {'on' if misoyan_settings['vc_joining'] else 'off'}"
+        self.children[2].style = discord.ButtonStyle.blurple if misoyan_settings["vc_joining"] else discord.ButtonStyle.grey
 
-        self.children[3].label = f"vc Leave: {'ON' if misoyan_settings['vc_leaving'] else 'OFF'}"
-        self.children[3].style = discord.ButtonStyle.green if misoyan_settings["vc_leaving"] else discord.ButtonStyle.red
+        self.children[3].label = f"vc leave: {'on' if misoyan_settings['vc_leaving'] else 'off'}"
+        self.children[3].style = discord.ButtonStyle.blurple if misoyan_settings["vc_leaving"] else discord.ButtonStyle.grey
 
-        # ROW 2: PRESENCE CLOCK PARAMETERS
+        # row 2: discord notes blah blah blah
         # sonion -kam
-        self.children[4].label = f"statuses: {'ON' if misoyan_settings['status_changes'] else 'OFF'}"
+        self.children[4].label = f"statuses: {'on' if misoyan_settings['status_changes'] else 'off'}"
         self.children[4].style = discord.ButtonStyle.blurple if misoyan_settings["status_changes"] else discord.ButtonStyle.gray
 
-        self.children[5].label = f"cycle rate: {'FAST (1m)' if misoyan_settings['status_change_delay'] else 'SLOW (2.5m)'}"
-        self.children[5].style = discord.ButtonStyle.danger if misoyan_settings["status_change_delay"] else discord.ButtonStyle.secondary
+        self.children[5].label = f"cycle rate: {'fast (1m)' if misoyan_settings['status_change_delay'] else 'normal (2.5m)'}"
+        self.children[5].style = discord.ButtonStyle.blurple if misoyan_settings["status_change_delay"] else discord.ButtonStyle.grey
 
     def generate_dashboard_embed(self) -> discord.Embed:
-        embed = discord.Embed(title="🔧 misoyan granular engine terminal console", color=0x2b2d31)
+        embed = discord.Embed(
+            title="the command block",
+            description="my internal organs :3", # why the fuck did i do this - blasie
+            color=0xffcc80
+        )
+
+        embed.set_thumbnail(url=bot.user.display_avatar.url)
         
-        # loop parameters status layout matrix mapping
+        # just display if on or off
         # sonbreto -kam
         embed.add_field(name="all features", value=f"`{'on' if misoyan_settings['all_features'] else 'off'}`", inline=False)
         embed.add_field(name="vc joining", value=f"`{'active' if misoyan_settings['vc_joining'] else 'disabled'}`", inline=True)
@@ -121,7 +127,7 @@ class FullSystemControlPanel(discord.ui.View):
         embed.add_field(name="blacklisted people", value=blacklist_mentions, inline=False)
         return embed
 
-    # --- BUTTON DECLARATION MATRIX (MAPPED ACCORDING TO YOUR LIST) ---
+    # buttons
     # SONIONNNNN 😭 -kam
     @discord.ui.button(custom_id="m_all", row=0)
     async def m_all(self, interaction: discord.Interaction, btn: discord.ui.Button):
