@@ -24,6 +24,7 @@ bot_token = os.environ.get("DISCORD_BOT_TOKEN")
 render_port = os.environ.get("PORT")          # reads render's network port variable
 
 # settings panel (pls no touch)
+# oke -kam
 misoyan_settings = {
     "all_features": True,          # master toggle switch override
     "vc_joining": True,            # allows her to execute voice connection flows
@@ -81,6 +82,7 @@ class FullSystemControlPanel(discord.ui.View):
     def update_panel_layout(self):
         """paints the visual styles across both button rows based on your boolean settings"""
         # ROW 0: CORE MASTER ARCHITECTURE
+        # holy dramatic nicknaming -kam
         self.children[0].label = f"all: {'ON' if misoyan_settings['all_features'] else 'OFF'}"
         self.children[0].style = discord.ButtonStyle.green if misoyan_settings["all_features"] else discord.ButtonStyle.red
 
@@ -88,6 +90,7 @@ class FullSystemControlPanel(discord.ui.View):
         self.children[1].style = discord.ButtonStyle.blurple if misoyan_settings["fih_replies"] else discord.ButtonStyle.gray
 
         # ROW 1: VOICE SUB-SYSTEMS
+        # son -kam
         self.children[2].label = f"vc Join: {'ON' if misoyan_settings['vc_joining'] else 'OFF'}"
         self.children[2].style = discord.ButtonStyle.green if misoyan_settings["vc_joining"] else discord.ButtonStyle.red
 
@@ -95,6 +98,7 @@ class FullSystemControlPanel(discord.ui.View):
         self.children[3].style = discord.ButtonStyle.green if misoyan_settings["vc_leaving"] else discord.ButtonStyle.red
 
         # ROW 2: PRESENCE CLOCK PARAMETERS
+        # sonion -kam
         self.children[4].label = f"statuses: {'ON' if misoyan_settings['status_changes'] else 'OFF'}"
         self.children[4].style = discord.ButtonStyle.blurple if misoyan_settings["status_changes"] else discord.ButtonStyle.gray
 
@@ -105,6 +109,7 @@ class FullSystemControlPanel(discord.ui.View):
         embed = discord.Embed(title="🔧 misoyan granular engine terminal console", color=0x2b2d31)
         
         # loop parameters status layout matrix mapping
+        # sonbreto -kam
         embed.add_field(name="all features", value=f"`{'on' if misoyan_settings['all_features'] else 'off'}`", inline=False)
         embed.add_field(name="vc joining", value=f"`{'active' if misoyan_settings['vc_joining'] else 'disabled'}`", inline=True)
         embed.add_field(name="vc leaving", value=f"`{'active' if misoyan_settings['vc_leaving'] else 'disabled'}`", inline=True)
@@ -117,6 +122,7 @@ class FullSystemControlPanel(discord.ui.View):
         return embed
 
     # --- BUTTON DECLARATION MATRIX (MAPPED ACCORDING TO YOUR LIST) ---
+    # SONIONNNNN 😭 -kam
     @discord.ui.button(custom_id="m_all", row=0)
     async def m_all(self, interaction: discord.Interaction, btn: discord.ui.Button):
         misoyan_settings["all_features"] = not misoyan_settings["all_features"]
@@ -374,6 +380,7 @@ async def restrict_user(interaction: discord.Interaction, target: discord.User):
         await interaction.response.send_message(f"blacklisted. **{target.name}** has been restricted.", ephemeral=True)
 
 # --- RENDER NETWORK PROXY SYSTEM CHECK BYPASS ---
+# SONNNNNNNNNNNNNNNNNNNNNN😭😭😭 -kam
 def run_dummy_server(port):
     """spins up a dead-simple server on an isolated background thread to keep render awake"""
     try:
