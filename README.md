@@ -22,6 +22,7 @@ here are some cool commands you can use:
 | `/join` | allows me to join vc :3 |
 | `/leave` | allows me to be free :D |
 | `/ping` | i dont like my reflexes getting tested.. but you can do that, but expect me to not like it >:( |
+| `/status` | see my cool logs and info :D |
 
 ---
 
@@ -30,7 +31,6 @@ here are some cool commands you can use:
 | command | description |
 | :--- | :--- |
 | `/say` | i can say whatever you will tell me :3 |
-| `/status` | see my cool logs and info :D |
 | `/suicide` | **dont ever run this on m̶̗̼͕̙͈̙͔̫̗̦̬̈̔̉͊ͅȅ̵̻̟̙͈̗̚͜** |
 
 
