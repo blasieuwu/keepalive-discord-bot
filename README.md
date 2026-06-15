@@ -35,7 +35,10 @@ here are some cool commands you can use:
 
 
 ---
-
+### smol stuff that are cute
+- if you will type my name, ill say my fav word :3
+- same here if you will ping :3
+---
 ### thanks for looking!
 
 thats pretty much it, fih :3 
