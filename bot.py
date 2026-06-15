@@ -15,13 +15,24 @@ intents.voice_states = True     # spy on vc
 # blasie's id
 creator_id = 891917254789320714
 
-# "whatever allows me to host bot"
+# compiler needs this
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # global settings
 target_voice_channel_id = 123456789012345678  # default home channel
 bot_token = os.environ.get("DISCORD_BOT_TOKEN")
 render_port = os.environ.get("PORT")          # reads render's network port variable
+
+# settings panel (pls no touch)
+misoyan_settings = {
+    "all_features": True,          # master toggle switch override
+    "vc_joining": True,            # allows her to execute voice connection flows
+    "vc_leaving": True,            # allows her to disconnect from vc spaces
+    "status_changes": True,        # enables the random presence color updates
+    "status_change_delay": True,   # toggles whether the loop clock runs fast or normal
+    "fih_replies": True,           # controls the on_message regex string listener
+    "blacklist": set()             # absolute snowflake number IDs of restricted humans
+}
 
 # clanker has emotions | format: (status, discord note)
 status_pool = [
@@ -43,9 +54,10 @@ reply_list = [
     "did someone call my name?",
     "fih :3",
     "please do the fih",
-    "i loveeee fih 🤗",
+    "i loveeee fih",
     "hi, my name is misoyan and I AM A FIH",
-    "hello :D"
+    "hello :D",
+    "the fih gods are watching us"
 ]
 
 class OpusSilenceSource(discord.AudioSource):
@@ -60,6 +72,86 @@ class OpusSilenceSource(discord.AudioSource):
 
     def read(self):
         return self.silence_packet
+
+class FullSystemControlPanel(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.update_panel_layout()
+
+    def update_panel_layout(self):
+        """paints the visual styles across both button rows based on your boolean settings"""
+        # ROW 0: CORE MASTER ARCHITECTURE
+        self.children[0].label = f"all: {'ON' if misoyan_settings['all_features'] else 'OFF'}"
+        self.children[0].style = discord.ButtonStyle.green if misoyan_settings["all_features"] else discord.ButtonStyle.red
+
+        self.children[1].label = f"voicelines: {'ON' if misoyan_settings['fih_replies'] else 'OFF'}"
+        self.children[1].style = discord.ButtonStyle.blurple if misoyan_settings["fih_replies"] else discord.ButtonStyle.gray
+
+        # ROW 1: VOICE SUB-SYSTEMS
+        self.children[2].label = f"vc Join: {'ON' if misoyan_settings['vc_joining'] else 'OFF'}"
+        self.children[2].style = discord.ButtonStyle.green if misoyan_settings["vc_joining"] else discord.ButtonStyle.red
+
+        self.children[3].label = f"vc Leave: {'ON' if misoyan_settings['vc_leaving'] else 'OFF'}"
+        self.children[3].style = discord.ButtonStyle.green if misoyan_settings["vc_leaving"] else discord.ButtonStyle.red
+
+        # ROW 2: PRESENCE CLOCK PARAMETERS
+        self.children[4].label = f"statuses: {'ON' if misoyan_settings['status_changes'] else 'OFF'}"
+        self.children[4].style = discord.ButtonStyle.blurple if misoyan_settings["status_changes"] else discord.ButtonStyle.gray
+
+        self.children[5].label = f"cycle rate: {'FAST (1m)' if misoyan_settings['status_change_delay'] else 'SLOW (2.5m)'}"
+        self.children[5].style = discord.ButtonStyle.danger if misoyan_settings["status_change_delay"] else discord.ButtonStyle.secondary
+
+    def generate_dashboard_embed(self) -> discord.Embed:
+        embed = discord.Embed(title="🔧 misoyan granular engine terminal console", color=0x2b2d31)
+        
+        # loop parameters status layout matrix mapping
+        embed.add_field(name="all features", value=f"`{'on' if misoyan_settings['all_features'] else 'off'}`", inline=False)
+        embed.add_field(name="vc joining", value=f"`{'active' if misoyan_settings['vc_joining'] else 'disabled'}`", inline=True)
+        embed.add_field(name="vc leaving", value=f"`{'active' if misoyan_settings['vc_leaving'] else 'disabled'}`", inline=True)
+        embed.add_field(name="voicelines", value=f"`{'listening' if misoyan_settings['fih_replies'] else 'muted'}`", inline=True)
+        embed.add_field(name="status changes", value=f"`{'cycling' if misoyan_settings['status_changes'] else 'frozen'}`", inline=True)
+        embed.add_field(name="cycle frequency", value=f"`{'_fast layout mode (1m)' if misoyan_settings['status_change_delay'] else '_normal engine rate (2.5m)'}`", inline=True)
+        
+        blacklist_mentions = ", ".join([f"<@{uid}>" for uid in misoyan_settings["blacklist"]]) if misoyan_settings["blacklist"] else "none"
+        embed.add_field(name="blacklisted people", value=blacklist_mentions, inline=False)
+        return embed
+
+    # --- BUTTON DECLARATION MATRIX (MAPPED ACCORDING TO YOUR LIST) ---
+    @discord.ui.button(custom_id="m_all", row=0)
+    async def m_all(self, interaction: discord.Interaction, btn: discord.ui.Button):
+        misoyan_settings["all_features"] = not misoyan_settings["all_features"]
+        self.update_panel_layout()
+        await interaction.response.edit_message(embed=self.generate_dashboard_embed(), view=self)
+
+    @discord.ui.button(custom_id="m_fih", row=0)
+    async def m_fih(self, interaction: discord.Interaction, btn: discord.ui.Button):
+        misoyan_settings["fih_replies"] = not misoyan_settings["fih_replies"]
+        self.update_panel_layout()
+        await interaction.response.edit_message(embed=self.generate_dashboard_embed(), view=self)
+
+    @discord.ui.button(custom_id="m_join", row=1)
+    async def m_join(self, interaction: discord.Interaction, btn: discord.ui.Button):
+        misoyan_settings["vc_joining"] = not misoyan_settings["vc_joining"]
+        self.update_panel_layout()
+        await interaction.response.edit_message(embed=self.generate_dashboard_embed(), view=self)
+
+    @discord.ui.button(custom_id="m_leave", row=1)
+    async def m_leave(self, interaction: discord.Interaction, btn: discord.ui.Button):
+        misoyan_settings["vc_leaving"] = not misoyan_settings["vc_leaving"]
+        self.update_panel_layout()
+        await interaction.response.edit_message(embed=self.generate_dashboard_embed(), view=self)
+
+    @discord.ui.button(custom_id="m_status", row=2)
+    async def m_status(self, interaction: discord.Interaction, btn: discord.ui.Button):
+        misoyan_settings["status_changes"] = not misoyan_settings["status_changes"]
+        self.update_panel_layout()
+        await interaction.response.edit_message(embed=self.generate_dashboard_embed(), view=self)
+
+    @discord.ui.button(custom_id="m_delay", row=2)
+    async def m_delay(self, interaction: discord.Interaction, btn: discord.ui.Button):
+        misoyan_settings["status_change_delay"] = not misoyan_settings["status_change_delay"]
+        self.update_panel_layout()
+        await interaction.response.edit_message(embed=self.generate_dashboard_embed(), view=self)
 
 def start_silence_loop(vc: discord.VoiceClient):
     """safely sequences the raw opus keepalive injection stream"""
@@ -80,44 +172,45 @@ def start_silence_loop(vc: discord.VoiceClient):
         bot.loop.create_task(delayed_play())
 
 async def auto_join_loop():
-    """persistent background loop ensuring misoyan never stays disconnected from home vc"""
     await bot.wait_until_ready()
     while not bot.is_closed():
-        try:
-            global target_voice_channel_id
-            channel = bot.get_channel(target_voice_channel_id)
-            
-            if channel and isinstance(channel, discord.VoiceChannel):
-                vc = discord.utils.get(bot.voice_clients, guild=channel.guild)
+        # if global features or vc joining is dropped, completely freeze the pipeline
+        if misoyan_settings["all_features"] and misoyan_settings["vc_joining"]:
+            try:
+                global target_voice_channel_id
+                channel = bot.get_channel(target_voice_channel_id)
+                if channel and isinstance(channel, discord.VoiceChannel):
+                    vc = discord.utils.get(bot.voice_clients, guild=channel.guild)
+                    if not vc or not vc.is_connected():
+                        vc = await channel.connect(reconnect=True, timeout=20.0)
+                        start_silence_loop(vc)
+                    elif vc.channel.id != target_voice_channel_id:
+                        await vc.move_to(channel)
+                        start_silence_loop(vc)
+            except Exception as e:
+                print(f"background loop trace failure: {e}")
                 
-                if not vc or not vc.is_connected():
-                    print(f"auto-recovery: connecting back to home vc -> {channel.name}")
-                    vc = await channel.connect(reconnect=True, timeout=20.0)
-                    start_silence_loop(vc)
-                elif vc.channel.id != target_voice_channel_id:
-                    print(f"position correction: pulling misoyan back to -> {channel.name}")
-                    await vc.move_to(channel)
-                    start_silence_loop(vc)
-                else:
-                    start_silence_loop(vc)
-        except Exception as e:
-            print(f"background loop error trace: {e}")
-            
         await asyncio.sleep(15)
 
 # "feeling diffrent today"
 @tasks.loop(minutes=2.5)
 async def cycle_status_loop():
-    """background clock loop that shifts her indicator color and custom note simultaneously"""
     await bot.wait_until_ready()
-    
+    if not misoyan_settings["all_features"] or not misoyan_settings["status_changes"]:
+        return
+
+    # dynamic loop check: adjust the clock speed on the fly depending on boolean state
+    current_interval = cycle_status_loop.minutes
+    if misoyan_settings["status_change_delay"] and current_interval != 1.0:
+        cycle_status_loop.change_interval(minutes=1.0) # speed it up to 1 minute ticks
+    elif not misoyan_settings["status_change_delay"] and current_interval != 2.5:
+        cycle_status_loop.change_interval(minutes=2.5) # slow it back down to standard duration
+
     selected_status, selected_note = random.choice(status_pool)
-    
     try:
         await bot.change_presence(status=selected_status, activity=selected_note)
-        print(f"shifted misoyan's profile to Status: {selected_status.name} | Note: '{selected_note.name}'")
     except Exception as e:
-        print(f"failed to cycle status note layout: {e}")
+        print(f"failed profile matrix shift: {e}")
 
 @bot.event
 async def on_ready():
@@ -143,15 +236,20 @@ async def on_message(message: discord.Message):
     if message.author.bot:
         return
 
+    # check master firewall switches first
+    if not misoyan_settings["all_features"] or message.author.id in misoyan_settings["blacklist"]:
+        return
+        
+    # verify if text parsing is allowed
+    if not misoyan_settings["fih_replies"]:
+        return
+
     if "misoyan" in message.content.lower() or bot.user.mentioned_in(message):
         try:
-            # randomly pick a response from our list
             selected_reply = random.choice(reply_list)
-            
             await message.reply(selected_reply, allowed_mentions=discord.AllowedMentions.none())
-            print(f"triggered phrase response for user: {message.author.name}")
         except Exception as e:
-            print(f"failed to send message reply: {e}")
+            print(f"failed to execute phrase callback: {e}")
 
     await bot.process_commands(message)
 
@@ -163,6 +261,10 @@ async def ping(interaction: discord.Interaction):
 
 @bot.tree.command(name="join", description="i wanna join the vc :3")
 async def join(interaction: discord.Interaction):
+    if not misoyan_settings["all_features"] or not misoyan_settings["vc_joining"]:
+        await interaction.response.send_message("sorry, but blasie disabled this feature.", ephemeral=True)
+        return
+
     global target_voice_channel_id
     if not interaction.user.voice or not interaction.user.voice.channel:
         await interaction.response.send_message("jump into a voice channel first you dummy!", ephemeral=True)
@@ -189,6 +291,10 @@ async def join(interaction: discord.Interaction):
 
 @bot.tree.command(name="leave", description="pls let me go :c")
 async def leave(interaction: discord.Interaction):
+    if not misoyan_settings["all_features"] or not misoyan_settings["vc_leaving"]:
+        await interaction.response.send_message("sorry, but blasie disabled this feature.", ephemeral=True)
+        return
+    
     vc = discord.utils.get(bot.voice_clients, guild=interaction.guild)
     if vc and vc.is_connected():
         await vc.disconnect()
@@ -244,6 +350,28 @@ async def systemsay(interaction: discord.Interaction, message: str):
         print(f"'{message}'")
     except Exception as e:
         print(f"someone tried to take control over me but couldnt due {e}")
+
+@bot.tree.command(name="control", description="[blasie-only] opens the real-time sub-system terminal console panel.")
+async def control_panel(interaction: discord.Interaction):
+    if interaction.user.id != creator_id:
+        await interaction.response.send_message("whoops, blasie didnt gave u access D:", ephemeral=True)
+        return
+    view = FullSystemControlPanel()
+    await interaction.response.send_message(embed=view.generate_dashboard_embed(), view=view, ephemeral=True)
+
+@bot.tree.command(name="restrict", description="[blasie-only] block/unblock a specific user from interacting with misoyan.")
+@app_commands.describe(target="the specific person you want to modify settings for")
+async def restrict_user(interaction: discord.Interaction, target: discord.User):
+    if interaction.user.id != creator_id:
+        await interaction.response.send_message("whoops, blasie didnt gave u access D:", ephemeral=True)
+        return
+        
+    if target.id in misoyan_settings["blacklist"]:
+        misoyan_settings["blacklist"].remove(target.id)
+        await interaction.response.send_message(f"unblacklisted. **{target.name}** can now trigger misoyan again.", ephemeral=True)
+    else:
+        misoyan_settings["blacklist"].add(target.id)
+        await interaction.response.send_message(f"blacklisted. **{target.name}** has been restricted.", ephemeral=True)
 
 # --- RENDER NETWORK PROXY SYSTEM CHECK BYPASS ---
 def run_dummy_server(port):
