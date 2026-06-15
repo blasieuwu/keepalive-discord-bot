@@ -32,7 +32,8 @@ here are some cool commands you can use:
 | :--- | :--- |
 | `/say` | i can say whatever you will tell me :3 |
 | `/suicide` | **dont ever run this on m̶̗̼͕̙͈̙͔̫̗̦̬̈̔̉͊ͅȅ̵̻̟̙͈̗̚͜** |
-
+| `/settings` | change stuff inside me :o |
+| `/restrict` | **dont end up in this list.** |
 
 ---
 ### smol stuff that are cute
