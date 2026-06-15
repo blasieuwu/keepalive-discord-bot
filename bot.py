@@ -125,7 +125,7 @@ async def on_message(message: discord.Message):
     if message.author.bot:
         return
 
-    if "misoyan" in message.content.lower():
+    if "misoyan" in message.content.lower() or bot.user.mentioned_in(message):
         try:
             await message.reply("fih", allowed_mentions=discord.AllowedMentions.none())
             print(f"triggered phrase response for user: {message.author.name}")
