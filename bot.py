@@ -116,12 +116,12 @@ class FullSystemControlPanel(discord.ui.View):
         
         # just display if on or off
         # sonbreto -kam
-        embed.add_field(name="all features", value=f"`{'on' if misoyan_settings['all_features'] else 'off'}`", inline=False)
-        embed.add_field(name="vc joining", value=f"`{'active' if misoyan_settings['vc_joining'] else 'disabled'}`", inline=True)
-        embed.add_field(name="vc leaving", value=f"`{'active' if misoyan_settings['vc_leaving'] else 'disabled'}`", inline=True)
-        embed.add_field(name="voicelines", value=f"`{'listening' if misoyan_settings['fih_replies'] else 'muted'}`", inline=True)
-        embed.add_field(name="status changes", value=f"`{'cycling' if misoyan_settings['status_changes'] else 'frozen'}`", inline=True)
-        embed.add_field(name="cycle frequency", value=f"`{'_fast layout mode (1m)' if misoyan_settings['status_change_delay'] else '_normal engine rate (2.5m)'}`", inline=True)
+        embed.add_field(name="all features: ", value=f"state: `{'on' if misoyan_settings['all_features'] else 'off'}`", inline=False)
+        embed.add_field(name="vc joining", value=f"state: `{'active' if misoyan_settings['vc_joining'] else 'disabled'}`", inline=True)
+        embed.add_field(name="vc leaving", value=f"state: `{'active' if misoyan_settings['vc_leaving'] else 'disabled'}`", inline=True)
+        embed.add_field(name="voicelines", value=f"state: `{'listening' if misoyan_settings['fih_replies'] else 'muted'}`", inline=True)
+        embed.add_field(name="status changes", value=f"state: `{'cycling' if misoyan_settings['status_changes'] else 'frozen'}`", inline=True)
+        embed.add_field(name="cycle frequency", value=f"state: `{'fast layout mode (1m)' if misoyan_settings['status_change_delay'] else 'normal engine rate (2.5m)'}`", inline=True)
         
         blacklist_mentions = ", ".join([f"<@{uid}>" for uid in misoyan_settings["blacklist"]]) if misoyan_settings["blacklist"] else "none"
         embed.add_field(name="blacklisted people", value=blacklist_mentions, inline=False)
@@ -329,9 +329,9 @@ async def systemstatus(interaction: discord.Interaction):
 
     embed.set_thumbnail(url=bot_thumbnail)
     
-    embed.add_field(name="reflex times", value=f"`{latency}ms`", inline=True)
-    embed.add_field(name="servers i'm in", value=f"`{total_guilds} servers`", inline=True)
-    embed.add_field(name="vcs i'm in right now", value=f"`{current_vc_connections} active streams`", inline=True)
+    embed.add_field(name="reflex times: ", value=f"`{latency}ms`", inline=False)
+    embed.add_field(name="servers i'm in: ", value=f"`{total_guilds} servers`", inline=False)
+    embed.add_field(name="vcs i'm in right now: ", value=f"`{current_vc_connections} active vcs`", inline=False)
     
     embed.set_footer(text="created by blasie :3")   
     await interaction.response.send_message(embed=embed)
