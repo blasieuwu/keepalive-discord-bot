@@ -175,7 +175,7 @@ async def leave(interaction: discord.Interaction):
     else:
         await interaction.response.send_message("you are asking me to leave discord? im not connected to vc..", ephemeral=True)
 
-@bot.tree.command(name="systemstatus", description="[blasie-only cuz i want so] view internal information.")
+@bot.tree.command(name="status", description="[blasie-only] view internal information.")
 async def systemstatus(interaction: discord.Interaction):
     if interaction.user.id != creator_id:
         await interaction.response.send_message("whoops, blasie didnt gave u access D:", ephemeral=True)
@@ -207,7 +207,7 @@ async def systemshutdown(interaction: discord.Interaction):
     await interaction.response.send_message("OUCH D:")
     await bot.close()
 
-@bot.tree.command(name="systemsay", description="[dev-only] make misoyan speak :D")
+@bot.tree.command(name="say", description="[blasie-only] make misoyan speak :D")
 @app_commands.describe(message="the exact text you want misoyan to broadcast")
 async def systemsay(interaction: discord.Interaction, message: str):
     # "shut up, ur not blasie"
