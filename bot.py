@@ -351,7 +351,7 @@ async def systemsay(interaction: discord.Interaction, message: str):
     except Exception as e:
         print(f"someone tried to take control over me but couldnt due {e}")
 
-@bot.tree.command(name="control", description="[blasie-only] opens the real-time sub-system terminal console panel.")
+@bot.tree.command(name="settings", description="[blasie-only] change my internal organs (oh god) :3")
 async def control_panel(interaction: discord.Interaction):
     if interaction.user.id != creator_id:
         await interaction.response.send_message("whoops, blasie didnt gave u access D:", ephemeral=True)
@@ -359,7 +359,7 @@ async def control_panel(interaction: discord.Interaction):
     view = FullSystemControlPanel()
     await interaction.response.send_message(embed=view.generate_dashboard_embed(), view=view, ephemeral=True)
 
-@bot.tree.command(name="restrict", description="[blasie-only] block/unblock a specific user from interacting with misoyan.")
+@bot.tree.command(name="restrict", description="[blasie-only] dont end up in this list.")
 @app_commands.describe(target="the specific person you want to modify settings for")
 async def restrict_user(interaction: discord.Interaction, target: discord.User):
     if interaction.user.id != creator_id:
