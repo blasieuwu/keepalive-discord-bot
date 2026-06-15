@@ -136,7 +136,7 @@ async def on_message(message: discord.Message):
 
     if "misoyan" in message.content.lower() or bot.user.mentioned_in(message):
         try:
-            # randomly pink a response from our list
+            # randomly pick a response from our list
             selected_reply = random.choice(reply_list)
             
             await message.reply(selected_reply, allowed_mentions=discord.AllowedMentions.none())
@@ -158,7 +158,7 @@ async def join(interaction: discord.Interaction):
     if not interaction.user.voice or not interaction.user.voice.channel:
         await interaction.response.send_message("jump into a voice channel first you dummy!", ephemeral=True)
         return
-        
+    
     user_channel = interaction.user.voice.channel
     vc = discord.utils.get(bot.voice_clients, guild=interaction.guild)
     await interaction.response.defer() 
@@ -187,28 +187,27 @@ async def leave(interaction: discord.Interaction):
     else:
         await interaction.response.send_message("you are asking me to leave discord? im not connected to vc..", ephemeral=True)
 
-@bot.tree.command(name="status", description="[blasie-only] view internal information.")
+@bot.tree.command(name="status", description="check out my internal self :D")
 async def systemstatus(interaction: discord.Interaction):
-    if interaction.user.id != creator_id:
-        await interaction.response.send_message("whoops, blasie didnt gave u access D:", ephemeral=True)
-        return
-        
-    await interaction.response.defer(ephemeral=True)
     total_guilds = len(bot.guilds)
     latency = round(bot.latency * 1000)
     current_vc_connections = len(bot.voice_clients)
+    bot_thumbnail = bot.user.display_avatar.url
     
     embed = discord.Embed(
-        title="misoyan developer diagnostics",
-        description="some very cool statistics",
+        title="misoyan's internal brain :3",
+        description="very simple stuff",
         color=0x2b2d31
     )
-    embed.add_field(name="latency", value=f"`{latency}ms`", inline=True)
-    embed.add_field(name="server count", value=f"`{total_guilds} servers`", inline=True)
-    embed.add_field(name="audio streams", value=f"`{current_vc_connections} active streams`", inline=True)
-    embed.set_footer(text="developer security mode active")
+
+    embed.set_thumbnail(url=bot_thumbnail)
     
-    await interaction.followup.send(embed=embed, ephemeral=True)
+    embed.add_field(name="reflex times", value=f"`{latency}ms`", inline=True)
+    embed.add_field(name="servers i'm in", value=f"`{total_guilds} servers`", inline=True)
+    embed.add_field(name="vcs i'm in right now", value=f"`{current_vc_connections} active streams`", inline=True)
+    
+    embed.set_footer(text="created by blasie :3")   
+    await interaction.followup.send(embed=embed)
 
 @bot.tree.command(name="suicide", description="[blasie-only] completely kills misoyan.")
 async def systemshutdown(interaction: discord.Interaction):
