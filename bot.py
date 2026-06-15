@@ -23,20 +23,29 @@ target_voice_channel_id = 123456789012345678  # default home channel
 bot_token = os.environ.get("DISCORD_BOT_TOKEN")
 render_port = os.environ.get("PORT")          # reads render's network port variable
 
-# clanker has emotions
+# clanker has emotions | format: (status, discord note)
 status_pool = [
     (discord.Status.online, discord.CustomActivity(name="hanging out in the vc :3")),
     (discord.Status.idle, discord.CustomActivity(name="waiting for someone to join :c")),
-    (discord.Status.dnd, discord.CustomActivity(name="learning new stuff..."))
+    (discord.Status.dnd, discord.CustomActivity(name="learning new stuff...")),
+    (discord.Status.invisible, discord.CustomActivity(name="lurking...")),
+    (discord.Status.online, discord.CustomActivity(name="yapping in yappanese bleh")),
+    (discord.Status.idle, discord.CustomActivity(name="waiting for someone to call my name :c")),
+    (discord.Status.dnd, discord.CustomActivity(name="please do the fih")),
+    (discord.Status.invisible, discord.CustomActivity(name="sleeping... zzz"))
 ]
 
 # misoyan can now say more things
 reply_list = [
-    "fih",
+    "fih fih fih",
     "who pinged",
     "you like fih?",
     "did someone call my name?",
-    "fih :3"
+    "fih :3",
+    "please do the fih",
+    "i loveeee fih 🤗",
+    "hi, my name is misoyan and I AM A FIH",
+    "hello :D"
 ]
 
 class OpusSilenceSource(discord.AudioSource):
@@ -207,7 +216,7 @@ async def systemstatus(interaction: discord.Interaction):
     embed.add_field(name="vcs i'm in right now", value=f"`{current_vc_connections} active streams`", inline=True)
     
     embed.set_footer(text="created by blasie :3")   
-    await interaction.followup.send(embed=embed)
+    await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="suicide", description="[blasie-only] completely kills misoyan.")
 async def systemshutdown(interaction: discord.Interaction):
