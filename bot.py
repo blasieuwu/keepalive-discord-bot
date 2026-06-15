@@ -207,6 +207,24 @@ async def systemshutdown(interaction: discord.Interaction):
     await interaction.response.send_message("♻️ tearing down pipeline instances and disconnecting gateway sockets securely...")
     await bot.close()
 
+@bot.tree.command(name="systemsay", description="[dev-only] make misoyan speak :D")
+@app_commands.describe(message="the exact text you want misoyan to broadcast")
+async def systemsay(interaction: discord.Interaction, message: str):
+    # SECURITY HANDSHAKE SIGNATURE GATE
+    if interaction.user.id != creator_id:
+        await interaction.response.send_message("whoops, you can't access this", ephemeral=True)
+        return
+        
+    # instantly satisfy discord's interaction loop privately so your friends don't see the command use
+    await interaction.response.send_message("transmitting message matrix...", ephemeral=True)
+    
+    try:
+        # drop the message into the exact text channel where you typed the command
+        await interaction.channel.send(message)
+        print(f"developer broadcast executed successfully: '{message}'")
+    except Exception as e:
+        print(f"failed to execute developer broadcast command trace: {e}")
+
 # --- RENDER NETWORK PROXY SYSTEM CHECK BYPASS ---
 def run_dummy_server(port):
     """spins up a dead-simple server on an isolated background thread to keep render awake"""
