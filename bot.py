@@ -1,29 +1,29 @@
 import asyncio
 import os
-import random  # <-- KEEPING: keeps random.choice from crashing her
-import threading  # <-- ADDED: handles the background web server thread
-from http.server import SimpleHTTPRequestHandler, HTTPServer  # <-- ADDED: basic server classes
+import random  # keeps random.choice from crashing her
+import threading  # handles the background web server thread
+from http.server import SimpleHTTPRequestHandler, HTTPServer  # basic server classes
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 
-# CRITICAL: add message_content intent so the bot can read the word "misoyan"
+# make bot can read the word "misoyan"
 intents = discord.Intents.default()
 intents.message_content = True 
-intents.voice_states = True     # monitors voice connection states
+intents.voice_states = True     # spy on vc
 
-# YOUR UNIQUE DISCORD NUMERICAL ACCOUNT ID
+# blasie's id
 creator_id = 891917254789320714
 
-# prefix isn't used for slash commands, but required by the constructor
+# "whatever allows me to host bot"
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # global settings
 target_voice_channel_id = 123456789012345678  # default home channel
 bot_token = os.environ.get("DISCORD_BOT_TOKEN")
-render_port = os.environ.get("PORT")          # <-- ADDED: reads render's network port variable
+render_port = os.environ.get("PORT")          # reads render's network port variable
 
-# the status pool (format: online status, discord note)
+# clanker has emotions
 status_pool = [
     (discord.Status.online, discord.CustomActivity(name="hanging out in the vc :3")),
     (discord.Status.idle, discord.CustomActivity(name="waiting for someone to join :c")),
@@ -37,7 +37,7 @@ class OpusSilenceSource(discord.AudioSource):
         self.silence_packet = b'\xf8\xff\xfe\x00\x00'
 
     def is_opus(self):
-        # CRITICAL HANDSHAKE: skips raw pcm processing entirely.
+        # skips raw pcm processing entirely.
         return True
 
     def read(self):
@@ -47,13 +47,13 @@ def start_silence_loop(vc: discord.VoiceClient):
     """safely sequences the raw opus keepalive injection stream"""
     if vc and vc.is_connected():
         if vc.is_playing():
-            print("misoyan audio engine is already actively transmitting frames. skipping.")
+            print("misoyan is already actively transmitting frames. skipping.")
             return
             
         async def delayed_play():
             await asyncio.sleep(1.5)  
             if vc.is_connected() and not vc.is_playing():
-                print("initiating misoyan 24/7 silence keepalive transmission...")
+                print("i exist :3")
                 try:
                     vc.play(OpusSilenceSource(), after=lambda e: print(f"voice gateway frame recycling/reset: {e}") if e else None)
                 except Exception as e:
@@ -87,7 +87,7 @@ async def auto_join_loop():
             
         await asyncio.sleep(15)
 
-# custom statuses timing loop
+# "feeling diffrent today"
 @tasks.loop(minutes=2.5)
 async def cycle_status_loop():
     """background clock loop that shifts her indicator color and custom note simultaneously"""
@@ -111,7 +111,7 @@ async def on_ready():
     except Exception as e:
         print(f"failed to sync slash commands: {e}")
         
-    # START THE STATUS TIMING LOOP HERE
+    # timer goes tick tick yeah :D
     if not cycle_status_loop.is_running():
         cycle_status_loop.start()
         print("misoyan's status note rotation schedule has officially started.")
@@ -119,7 +119,7 @@ async def on_ready():
     print("starting main loop (ping)")
     bot.loop.create_task(auto_join_loop())
 
-# --- TEXT LISTENER (MISOYAN -> FIH) ---
+# "misoyan what you like?"
 @bot.event
 async def on_message(message: discord.Message):
     if message.author.bot:
@@ -134,17 +134,17 @@ async def on_message(message: discord.Message):
 
     await bot.process_commands(message)
 
-# --- SLASH COMMANDS REGISTRATION ---
-@bot.tree.command(name="ping", description="check misoyan's current connection latency")
+# slash commands
+@bot.tree.command(name="ping", description="check misoyan's reflexes")
 async def ping(interaction: discord.Interaction):
     latency = round(bot.latency * 1000)
-    await interaction.response.send_message(f"pong! 🏓 (`{latency}ms`)")
+    await interaction.response.send_message(f"no. (`{latency}ms`)")
 
 @bot.tree.command(name="join", description="i wanna join the vc :3")
 async def join(interaction: discord.Interaction):
     global target_voice_channel_id
     if not interaction.user.voice or not interaction.user.voice.channel:
-        await interaction.response.send_message("❌ jump into a voice channel first!", ephemeral=True)
+        await interaction.response.send_message("jump into a voice channel first you dummy!", ephemeral=True)
         return
         
     user_channel = interaction.user.voice.channel
@@ -171,14 +171,14 @@ async def leave(interaction: discord.Interaction):
     vc = discord.utils.get(bot.voice_clients, guild=interaction.guild)
     if vc and vc.is_connected():
         await vc.disconnect()
-        await interaction.response.send_message("i successfully left the voice channel (yay :3)", ephemeral=True)
+        await interaction.response.send_message("i am free!! (yay :3)", ephemeral=True)
     else:
-        await interaction.response.send_message("i'm not connected to a voice channel.", ephemeral=True)
+        await interaction.response.send_message("you are asking me to leave discord? im not connected to vc..", ephemeral=True)
 
-@bot.tree.command(name="systemstatus", description="[dev-only] view internal information.")
+@bot.tree.command(name="systemstatus", description="[blasie-only cuz i want so] view internal information.")
 async def systemstatus(interaction: discord.Interaction):
     if interaction.user.id != creator_id:
-        await interaction.response.send_message("whoops, you can't access this", ephemeral=True)
+        await interaction.response.send_message("whoops, blasie didnt gave u access D:", ephemeral=True)
         return
         
     await interaction.response.defer(ephemeral=True)
@@ -198,32 +198,32 @@ async def systemstatus(interaction: discord.Interaction):
     
     await interaction.followup.send(embed=embed, ephemeral=True)
 
-@bot.tree.command(name="systemshutdown", description="[dev-only] completely shuts down misoyan.")
+@bot.tree.command(name="suicide", description="[blasie-only] completely kills misoyan.")
 async def systemshutdown(interaction: discord.Interaction):
     if interaction.user.id != creator_id:
-        await interaction.response.send_message("whoops, you can't access this", ephemeral=True)
+        await interaction.response.send_message("whoops, blasie didnt gave u access D:", ephemeral=True)
         return
         
-    await interaction.response.send_message("♻️ tearing down pipeline instances and disconnecting gateway sockets securely...")
+    await interaction.response.send_message("OUCH D:")
     await bot.close()
 
 @bot.tree.command(name="systemsay", description="[dev-only] make misoyan speak :D")
 @app_commands.describe(message="the exact text you want misoyan to broadcast")
 async def systemsay(interaction: discord.Interaction, message: str):
-    # SECURITY HANDSHAKE SIGNATURE GATE
+    # "shut up, ur not blasie"
     if interaction.user.id != creator_id:
-        await interaction.response.send_message("whoops, you can't access this", ephemeral=True)
+        await interaction.response.send_message("whoops, blasie didnt gave u access D:", ephemeral=True)
         return
         
-    # instantly satisfy discord's interaction loop privately so your friends don't see the command use
-    await interaction.response.send_message("transmitting message matrix...", ephemeral=True)
+    # instantly satisfy discord's interaction loop privately so humans wouldnt see(maybe clankers will see idk)
+    await interaction.response.send_message("fih", ephemeral=True)
     
     try:
         # drop the message into the exact text channel where you typed the command
         await interaction.channel.send(message)
-        print(f"developer broadcast executed successfully: '{message}'")
+        print(f"'{message}'")
     except Exception as e:
-        print(f"failed to execute developer broadcast command trace: {e}")
+        print(f"someone tried to take control over me but couldnt due {e}")
 
 # --- RENDER NETWORK PROXY SYSTEM CHECK BYPASS ---
 def run_dummy_server(port):
@@ -244,4 +244,4 @@ if __name__ == "__main__":
     if bot_token:
         bot.run(bot_token)
     else:
-        print("error: DISCORD_BOT_TOKEN environment variable not found.")
+        print("you forgot my token you dummy!")
