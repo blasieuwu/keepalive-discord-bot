@@ -176,30 +176,24 @@ class FullSystemControlPanel(discord.ui.View):
 def start_silence_loop(vc: discord.VoiceClient):
     """safely sequences the raw opus keepalive injection stream"""
     if vc and vc.is_connected():
+        # CRITICAL CHECK: if she is already playing or transmitting silence, DO NOT INTERRUPT HER
         if vc.is_playing():
-            print("misoyan is already actively transmitting frames. skipping.")
             return
             
-        async def delayed_play():
-            await asyncio.sleep(1.5)  
-            if vc.is_connected() and not vc.is_playing():
-                print("i exist :3")
-                try:
-                    vc.play(OpusSilenceSource(), after=lambda e: print(f"voice gateway frame recycling/reset: {e}") if e else None)
-                except Exception as e:
-                    print(f"internal keepalive playback error trace: {e}")
-
-        bot.loop.create_task(delayed_play())
+        print("i exist :3")
+        try:
+            vc.play(OpusSilenceSource(), after=lambda e: print(f"voice gateway frame recycling/reset: {e}") if e else None)
+        except Exception as e:
+            # this catches the "Already playing" error safely if a race condition happens
+            if "Already playing" not in str(e):
+                print(f"internal keepalive playback error trace: {e}")
 
 async def auto_join_loop():
     global vc_reconnect_lock
     await bot.wait_until_ready()
     
     while not bot.is_closed():
-        # skip entirely if blasie turned off features or vc joining is disabled
         if misoyan_settings["all_features"] and misoyan_settings["vc_joining"]:
-            
-            # if we are already in the middle of a connection attempt, skip this tick
             if not vc_reconnect_lock:
                 try:
                     global target_voice_channel_id
@@ -211,31 +205,31 @@ async def auto_join_loop():
                         # check if she's missing or disconnected entirely
                         if not vc or not vc.is_connected():
                             print("damn im gone from the vc. lemme reconnect")
-                            
-                            vc_reconnect_lock = True # lock it down!
+                            vc_reconnect_lock = True
                             vc = await channel.connect(reconnect=True, timeout=10.0)
                             start_silence_loop(vc)
-                            vc_reconnect_lock = False # unlock once successful
+                            vc_reconnect_lock = False
                             
                         # "oi im in the wrong vc" - blasie
                         elif vc.channel.id != target_voice_channel_id:
                             print("im in the wrong channel. reconnecting back...")
-                            
                             vc_reconnect_lock = True
                             await vc.move_to(channel)
                             start_silence_loop(vc)
                             vc_reconnect_lock = False
                             
                         else:
-                            # run it like nothing happened
-                            start_silence_loop(vc)
+                            # only trigger silence if she isn't actively streaming audio!
+                            if not vc.is_playing():
+                                start_silence_loop(vc)
                             
                 except Exception as e:
                     print(f"high-speed background loop encounter flaw: {e}")
-                    vc_reconnect_lock = False # make sure to unlock if it crashes so it can try again - clanker
+                    vc_reconnect_lock = False
                 
-        # welcome to the fast lane kam and blasie look at this go - clanker
-        await asyncio.sleep(2)
+        # let's slow this down slightly from 2s to 10s. 
+        # checking the vc state every 10 seconds is more than enough and won't spam the API!
+        await asyncio.sleep(10)
 
 # "feeling diffrent today"
 @tasks.loop(minutes=2.5)
