@@ -16,12 +16,20 @@ intents.voice_states = True     # spy on vc
 creator_id = 891917254789320714
 
 # compiler needs this
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(
+    command_prefix="!", 
+    intents=intents,
+    heartbeat_timeout=60.0,    # gives her a full minute to recover if discord drops a gateway packet
+    ws_close_timeout=10.0      # cleans up dead sockets fast so she can immediately re-handshake
+)
 
 # global settings
 target_voice_channel_id = 123456789012345678  # default home channel
 bot_token = os.environ.get("DISCORD_BOT_TOKEN")
-render_port = os.environ.get("PORT")          # reads render's network port variable
+render_port = os.environ.get("PORT")      # reads render's network port variable
+
+# itll make sense in the auto_join_loop() func
+vc_reconnect_lock = False
 
 # settings panel (pls no touch)
 # oke -kam
@@ -184,25 +192,50 @@ def start_silence_loop(vc: discord.VoiceClient):
         bot.loop.create_task(delayed_play())
 
 async def auto_join_loop():
+    global vc_reconnect_lock
     await bot.wait_until_ready()
+    
     while not bot.is_closed():
-        # if global features or vc joining is dropped, completely freeze the pipeline
+        # skip entirely if blasie turned off features or vc joining is disabled
         if misoyan_settings["all_features"] and misoyan_settings["vc_joining"]:
-            try:
-                global target_voice_channel_id
-                channel = bot.get_channel(target_voice_channel_id)
-                if channel and isinstance(channel, discord.VoiceChannel):
-                    vc = discord.utils.get(bot.voice_clients, guild=channel.guild)
-                    if not vc or not vc.is_connected():
-                        vc = await channel.connect(reconnect=True, timeout=20.0)
-                        start_silence_loop(vc)
-                    elif vc.channel.id != target_voice_channel_id:
-                        await vc.move_to(channel)
-                        start_silence_loop(vc)
-            except Exception as e:
-                print(f"background loop trace failure: {e}")
+            
+            # if we are already in the middle of a connection attempt, skip this tick
+            if not vc_reconnect_lock:
+                try:
+                    global target_voice_channel_id
+                    channel = bot.get_channel(target_voice_channel_id)
+                    
+                    if channel and isinstance(channel, discord.VoiceChannel):
+                        vc = discord.utils.get(bot.voice_clients, guild=channel.guild)
+                        
+                        # check if she's missing or disconnected entirely
+                        if not vc or not vc.is_connected():
+                            print("damn im gone from the vc. lemme reconnect")
+                            
+                            vc_reconnect_lock = True # lock it down!
+                            vc = await channel.connect(reconnect=True, timeout=10.0)
+                            start_silence_loop(vc)
+                            vc_reconnect_lock = False # unlock once successful
+                            
+                        # "oi im in the wrong vc" - blasie
+                        elif vc.channel.id != target_voice_channel_id:
+                            print("im in the wrong channel. reconnecting back...")
+                            
+                            vc_reconnect_lock = True
+                            await vc.move_to(channel)
+                            start_silence_loop(vc)
+                            vc_reconnect_lock = False
+                            
+                        else:
+                            # run it like nothing happened
+                            start_silence_loop(vc)
+                            
+                except Exception as e:
+                    print(f"high-speed background loop encounter flaw: {e}")
+                    vc_reconnect_lock = False # make sure to unlock if it crashes so it can try again - clanker
                 
-        await asyncio.sleep(15)
+        # welcome to the fast lane kam and blasie look at this go - clanker
+        await asyncio.sleep(2)
 
 # "feeling diffrent today"
 @tasks.loop(minutes=2.5)
@@ -241,6 +274,37 @@ async def on_ready():
         
     print("starting main loop (ping)")
     bot.loop.create_task(auto_join_loop())
+
+# intercept system to make sure nobody boots her out of paradise
+@bot.event
+async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+    # we only give a shit if the person being moved is misoyan herself
+    if member.id == bot.user.id:
+        # check if she was kicked entirely or dragged into a different room
+        if after.channel is None or after.channel.id != target_voice_channel_id:
+            print("oh shit, i think its time to reconnect")
+            
+            if misoyan_settings["all_features"] and misoyan_settings["vc_joining"]:
+                guild = member.guild
+                vc = discord.utils.get(bot.voice_clients, guild=guild)
+                
+                # kill the fake clone if it exists
+                if vc:
+                    try:
+                        await vc.disconnect(force=True)
+                    except Exception as e:
+                        print(f"couldn't wipe dead voice handle: {e}")
+                
+                # reconnect uhh... whateves
+                home_channel = bot.get_channel(target_voice_channel_id)
+                if home_channel and isinstance(home_channel, discord.VoiceChannel):
+                    try:
+                        print(f"snapping back to home vc -> {home_channel.name}")
+                        # start a slow particle accelerator reconnection attempt cuz yes - blasie
+                        new_vc = await home_channel.connect(reconnect=True, timeout=15.0)
+                        start_silence_loop(new_vc)
+                    except Exception as e:
+                        print(f"instant intercept recovery failed: {e}. backup loop will catch it.")
 
 # "misoyan what you like?"
 @bot.event
