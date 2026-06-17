@@ -193,7 +193,7 @@ async def connect_external_audio_node():
 @bot.event
 async def on_wavelink_node_ready(payload: wavelink.NodeReadyEventPayload):
     """triggers the absolute millisecond the web node locks handshakes with your script"""
-    print(f"\n[+] network pipeline active! audio node '{payload.node.id}' is holding her voice core.")
+    print(f"\n[+] network pipeline active! audio node '{payload.node.identifier}' is holding her voice core.")
 
 # --- 🛡️ THE NATIVE VOICE SENTINEL GUARD ---
 @tasks.loop(seconds=15)
