@@ -1,3 +1,4 @@
 discord.py
 PyNaCl
 davey
+wavelink
