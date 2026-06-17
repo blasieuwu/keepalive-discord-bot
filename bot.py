@@ -6,6 +6,7 @@ from http.server import SimpleHTTPRequestHandler, HTTPServer  # basic server cla
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
+import wavelink  # 🚀 THE NEW IMMORTAL AUDIO BACKEND BRIDGE
 
 # make bot can read the word "misoyan"
 intents = discord.Intents.default()
@@ -27,9 +28,6 @@ bot = commands.Bot(
 target_voice_channel_id = 123456789012345678  # default home channel
 bot_token = os.environ.get("DISCORD_BOT_TOKEN")
 render_port = os.environ.get("PORT")      # reads render's network port variable
-
-# itll make sense in the auto_join_loop() func
-vc_reconnect_lock = False
 
 # settings panel (pls no touch)
 # oke -kam
@@ -68,19 +66,6 @@ reply_list = [
     "hello :D",
     "the fih gods are watching us"
 ]
-
-class OpusSilenceSource(discord.AudioSource):
-    """streams pre-compiled cryptographic voice frames directly to bypass inactivity drops"""
-    def __init__(self):
-        # 5 specific hex bytes that signal "legitimate frame silence" to discord's server
-        self.silence_packet = b'\xf8\xff\xfe\x00\x00'
-
-    def is_opus(self):
-        # skips raw pcm processing entirely.
-        return True
-
-    def read(self):
-        return self.silence_packet
 
 class FullSystemControlPanel(discord.ui.View):
     def __init__(self):
@@ -173,63 +158,61 @@ class FullSystemControlPanel(discord.ui.View):
         self.update_panel_layout()
         await interaction.response.edit_message(embed=self.generate_dashboard_embed(), view=self)
 
-def start_silence_loop(vc: discord.VoiceClient):
-    """safely sequences the raw opus keepalive injection stream"""
-    if vc and vc.is_connected():
-        # CRITICAL CHECK: if she is already playing or transmitting silence, DO NOT INTERRUPT HER
-        if vc.is_playing():
-            return
-            
-        print("i exist :3")
-        try:
-            vc.play(OpusSilenceSource(), after=lambda e: print(f"voice gateway frame recycling/reset: {e}") if e else None)
-        except Exception as e:
-            # this catches the "Already playing" error safely if a race condition happens
-            if "Already playing" not in str(e):
-                print(f"internal keepalive playback error trace: {e}")
-
-async def auto_join_loop():
-    global vc_reconnect_lock
+# --- 🌐 IMMORTAL BACKEND NODE POOL COUPLING ---
+async def connect_external_audio_node():
+    """establishes a persistent socket tunnel to the public web server cluster"""
     await bot.wait_until_ready()
     
-    while not bot.is_closed():
-        if misoyan_settings["all_features"] and misoyan_settings["vc_joining"]:
-            if not vc_reconnect_lock:
-                try:
-                    global target_voice_channel_id
-                    channel = bot.get_channel(target_voice_channel_id)
-                    
-                    if channel and isinstance(channel, discord.VoiceChannel):
-                        vc = discord.utils.get(bot.voice_clients, guild=channel.guild)
-                        
-                        # check if she's missing or disconnected entirely
-                        if not vc or not vc.is_connected():
-                            print("damn im gone from the vc. lemme reconnect")
-                            vc_reconnect_lock = True
-                            vc = await channel.connect(reconnect=True, timeout=10.0)
-                            start_silence_loop(vc)
-                            vc_reconnect_lock = False
-                            
-                        # "oi im in the wrong vc" - blasie
-                        elif vc.channel.id != target_voice_channel_id:
-                            print("im in the wrong channel. reconnecting back...")
-                            vc_reconnect_lock = True
-                            await vc.move_to(channel)
-                            start_silence_loop(vc)
-                            vc_reconnect_lock = False
-                            
-                        else:
-                            # only trigger silence if she isn't actively streaming audio!
-                            if not vc.is_playing():
-                                start_silence_loop(vc)
-                            
-                except Exception as e:
-                    print(f"high-speed background loop encounter flaw: {e}")
-                    vc_reconnect_lock = False
+    # packing the community credentials into a node container profile
+    nodes = [
+        wavelink.Node(
+            identifier="misoyan_immortal_v4",
+            uri="http://lava.kasawa.pro:2333", # the web endpoint
+            password="youshallnotpass"         # standard community auth token
+        )
+    ]
+    
+    try:
+        # hook misoyan directly into the network server pool
+        await wavelink.Pool.connect(nodes=nodes, client=bot)
+    except Exception as e:
+        print(f"[!] audio node pipeline crash on startup: {e}")
+
+@bot.event
+async def on_wavelink_node_ready(payload: wavelink.NodeReadyEventPayload):
+    """triggers the absolute millisecond the web node locks handshakes with your script"""
+    print(f"\n[+] network pipeline active! audio node '{payload.node.id}' is holding her voice core.")
+
+# --- 🛡️ THE NATIVE VOICE SENTINEL GUARD ---
+@tasks.loop(seconds=15)
+async def native_voice_sentinel_loop():
+    """discord.ext.tasks automatically monitors, isolates, and heals crashes silently!"""
+    if not misoyan_settings["all_features"] or not misoyan_settings["vc_joining"]:
+        return
+
+    try:
+        global target_voice_channel_id
+        home_channel = bot.get_channel(target_voice_channel_id)
+        if home_channel and isinstance(home_channel, discord.VoiceChannel):
+            
+            try:
+                # get the active wavelink player object mapped to this server guild
+                player: wavelink.Player = wavelink.Pool.get_node().get_player(home_channel.guild.id)
+            except Exception:
+                player = None
+            
+            # if the player doesn't exist or isn't connected to the web socket, trigger entry!
+            if not player or not player.connected:
+                print("damn im gone from the vc. lemme reconnect via web node injector...")
+                # we pass cls=wavelink.Player to intercept the voice client creation pipeline
+                await home_channel.connect(cls=wavelink.Player)
                 
-        # let's slow this down slightly from 2s to 10s. 
-        # checking the vc state every 10 seconds is more than enough and won't spam the API!
-        await asyncio.sleep(10)
+            elif player.channel.id != target_voice_channel_id:
+                print("im in the wrong channel. reconnecting back...")
+                await player.move_to(home_channel)
+                
+    except Exception as e:
+        print(f"sentinel loop encounter flaw: {e}")
 
 # "feeling diffrent today"
 @tasks.loop(minutes=2.5)
@@ -266,8 +249,13 @@ async def on_ready():
         cycle_status_loop.start()
         print("misoyan's status note rotation schedule has officially started.")
         
-    print("starting main loop (ping)")
-    bot.loop.create_task(auto_join_loop())
+    # ignite our background tracking engines
+    if not native_voice_sentinel_loop.is_running():
+        native_voice_sentinel_loop.start()
+        print("[sentinel] persistent voice monitor initialized.")
+        
+    # fire up the web node handshake routine!
+    bot.loop.create_task(connect_external_audio_node())
 
 # intercept system to make sure nobody boots her out of paradise
 @bot.event
@@ -279,24 +267,19 @@ async def on_voice_state_update(member: discord.Member, before: discord.VoiceSta
             print("oh shit, i think its time to reconnect")
             
             if misoyan_settings["all_features"] and misoyan_settings["vc_joining"]:
-                guild = member.guild
-                vc = discord.utils.get(bot.voice_clients, guild=guild)
-                
-                # kill the fake clone if it exists
-                if vc:
-                    try:
-                        await vc.disconnect(force=True)
-                    except Exception as e:
-                        print(f"couldn't wipe dead voice handle: {e}")
+                try:
+                    player: wavelink.Player = wavelink.Pool.get_node().get_player(member.guild.id)
+                    if player:
+                        await player.disconnect()
+                except Exception as e:
+                    print(f"couldn't wipe dead voice handle: {e}")
                 
                 # reconnect uhh... whateves
                 home_channel = bot.get_channel(target_voice_channel_id)
                 if home_channel and isinstance(home_channel, discord.VoiceChannel):
                     try:
                         print(f"snapping back to home vc -> {home_channel.name}")
-                        # start a slow particle accelerator reconnection attempt cuz yes - blasie
-                        new_vc = await home_channel.connect(reconnect=True, timeout=15.0)
-                        start_silence_loop(new_vc)
+                        await home_channel.connect(cls=wavelink.Player)
                     except Exception as e:
                         print(f"instant intercept recovery failed: {e}. backup loop will catch it.")
 
@@ -341,20 +324,13 @@ async def join(interaction: discord.Interaction):
         return
     
     user_channel = interaction.user.voice.channel
-    vc = discord.utils.get(bot.voice_clients, guild=interaction.guild)
     await interaction.response.defer() 
     target_voice_channel_id = user_channel.id
     
     try:
-        if vc and vc.is_connected():
-            print(f"moving existing connection to: {user_channel.name}")
-            await vc.move_to(user_channel)
-        else:
-            print(f"establishing brand new client connection to: {user_channel.name}")
-            vc = await user_channel.connect(reconnect=True, timeout=15.0)
-        
+        print(f"establishing client connection to web node for: {user_channel.name}")
+        await user_channel.connect(cls=wavelink.Player)
         await interaction.followup.send(f"i joined **{user_channel.name}**")
-        start_silence_loop(vc)
     except Exception as e:
         print(f"fatal crash inside slash join command execution: {e}")
         await interaction.followup.send(f"failed to join voice channel: {e}", ephemeral=True)
@@ -365,18 +341,26 @@ async def leave(interaction: discord.Interaction):
         await interaction.response.send_message("sorry, but blasie disabled this feature.", ephemeral=True)
         return
     
-    vc = discord.utils.get(bot.voice_clients, guild=interaction.guild)
-    if vc and vc.is_connected():
-        await vc.disconnect()
-        await interaction.response.send_message("i am free!! (yay :3)", ephemeral=True)
-    else:
-        await interaction.response.send_message("you are asking me to leave discord? im not connected to vc..", ephemeral=True)
+    try:
+        player: wavelink.Player = wavelink.Pool.get_node().get_player(interaction.guild.id)
+        if player and player.connected:
+            await player.disconnect()
+            await interaction.response.send_message("i am free!! (yay :3)", ephemeral=True)
+        else:
+            await interaction.response.send_message("you are asking me to leave discord? im not connected to vc..", ephemeral=True)
+    except Exception:
+        await interaction.response.send_message("im not connected to any voice node...", ephemeral=True)
 
 @bot.tree.command(name="status", description="check out my internal self :D")
 async def systemstatus(interaction: discord.Interaction):
     total_guilds = len(bot.guilds)
     latency = round(bot.latency * 1000)
-    current_vc_connections = len(bot.voice_clients)
+    
+    try:
+        current_vc_connections = 1 if wavelink.Pool.get_node().get_player(interaction.guild.id) else 0
+    except Exception:
+        current_vc_connections = 0
+        
     bot_thumbnail = bot.user.display_avatar.url
     
     embed = discord.Embed(
@@ -406,16 +390,13 @@ async def systemshutdown(interaction: discord.Interaction):
 @bot.tree.command(name="say", description="[blasie-only] make misoyan speak :D")
 @app_commands.describe(message="the exact text you want misoyan to broadcast")
 async def systemsay(interaction: discord.Interaction, message: str):
-    # "shut up, ur not blasie"
     if interaction.user.id != creator_id:
         await interaction.response.send_message("whoops, blasie didnt gave u access D:", ephemeral=True)
         return
         
-    # instantly satisfy discord's interaction loop privately so humans wouldnt see(maybe clankers will see idk)
     await interaction.response.send_message("fih", ephemeral=True)
     
     try:
-        # drop the message into the exact text channel where you typed the command
         await interaction.channel.send(message)
         print(f"'{message}'")
     except Exception as e:
@@ -456,7 +437,6 @@ def run_dummy_server(port):
         print(f"dummy listener server error trace: {e}")
 
 if __name__ == "__main__":
-    # if render assigned a network port, spin up the dummy web target layout
     if render_port:
         threading.Thread(target=run_dummy_server, args=(render_port,), daemon=True).start()
 
