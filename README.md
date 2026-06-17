@@ -7,6 +7,7 @@ im running on **python**, and im here to sit in your comfy vc 24/7
   <img src="https://img.shields.io/badge/Discord.py-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord.py" />
   <img src="https://img.shields.io/badge/Bot%20Status-Online-brightgreen?style=for-the-badge" alt="Status" />
   <img src="https://img.shields.io/badge/Maintenance-Yes-blue?style=for-the-badge" alt="Maintained" />
+  <img src="https://img.shields.io/badge/wavelink-orange?style=for-the-badge" alt="Wavelink" />
 </p>
 
 
