@@ -162,13 +162,25 @@ class FullSystemControlPanel(discord.ui.View):
 async def connect_external_audio_node():
     """establishes a persistent socket tunnel to the public web server cluster"""
     await bot.wait_until_ready()
+
+    # wavelink stuff
+    # 1. pull strings from render's environment table (or use fallbacks if empty)
+    lava_host = os.getenv("LAVALINK_HOST", "lava.link")
+    lava_port = os.getenv("LAVALINK_PORT", "80")
+    lava_pass = os.getenv("LAVALINK_PASSWORD", "youshallnotpass")
+
+    # 2. handle the secure websocket protocol check
+    # if port is 443, it uses secure connection (wss://), otherwise standard web socket (ws://)
+    is_secure = True if lava_port == "443" else False
+    protocol = "https" if is_secure else "http"
+
     
     # packing the community credentials into a node container profile
     nodes = [
         wavelink.Node(
             identifier="misoyan_immortal_v4",
-            uri="http://lava.kasawa.pro:2333", # the web endpoint
-            password="youshallnotpass"         # standard community auth token
+            uri=f"{protocol}://{lava_host}:{lava_port}",
+            password=lava_pass,
         )
     ]
     
