@@ -363,6 +363,74 @@ async def leave(interaction: discord.Interaction):
     except Exception:
         await interaction.response.send_message("im not connected to any voice node...", ephemeral=True)
 
+@bot.tree.command(name="play", description="blast some tracks through misoyan's powerful speakers!")
+@app_commands.describe(search="the song name, artist, or direct video url you want to play")
+async def play(interaction: discord.Interaction, search: str):
+    # checking master firewall switches first
+    if not misoyan_settings["all_features"]:
+        await interaction.response.send_message("sorry, but blasie has disabled this feature.", ephemeral=True)
+        return
+
+    if interaction.user.id in misoyan_settings["blacklist"]:
+        await interaction.response.send_message("you are on my blacklist. no speakers for you.", ephemeral=True)
+        return
+
+    # check if user is in a vc
+    if not interaction.user.voice or not interaction.user.voice.channel:
+        await interaction.response.send_message("join a voice channel first, you dummy! i need an audience. :c", ephemeral=True)
+        return
+
+    user_channel = interaction.user.voice.channel
+    await interaction.response.defer()  # give nexcloud node a few seconds to parse the query
+
+    try:
+        # fetch or create player for this guild server
+        node = wavelink.Pool.get_node()
+        player: wavelink.Player = node.get_player(interaction.guild.id)
+
+        # if she's not connected anywhere, connect her straight to the user
+        if not player or not player.connected:
+            print(f"[play] connecting voice client node injector to: {user_channel.name}")
+            player = await user_channel.connect(cls=wavelink.Player)
+            global target_voice_channel_id
+            target_voice_channel_id = user_channel.id
+
+        # search for the track payload using wavelink v3 api engine
+        # this handles search keywords OR direct urls natively!
+        tracks = await wavelink.Playable.search(search)
+        
+        if not tracks:
+            await interaction.followup.send(f"i couldn't find anything for `{search}`... are you sure that exists? :c")
+            return
+
+        # pick the very first track result matched
+        track = tracks[0]
+
+        # play the audio track through the socket channel
+        await player.play(track)
+        
+        # build a cute embed to show off what's playing
+        embed = discord.Embed(
+            title="now playing!",
+            description=f"**[{track.title}]({track.uri})**",
+            color=0xffcc80
+        )
+        if track.author:
+            embed.add_field(name="artist/creator", value=f"`{track.author}`", inline=True)
+        if track.length:
+            # convert milliseconds to minutes:seconds
+            minutes = int((track.length // 1000) // 60)
+            seconds = int((track.length // 1000) % 60)
+            embed.add_field(name="duration", value=f"`{minutes}:{seconds:02d}`", inline=True)
+            
+        embed.set_footer(text=f"requested by {interaction.user.name} :3")
+        
+        await interaction.followup.send(embed=embed)
+
+    except Exception as e:
+        print(f"[!] play command architecture threw a flaw: {e}")
+        await interaction.followup.send(f"uh oh, my speakers failed: `{e}`", ephemeral=True)
+
 @bot.tree.command(name="status", description="check out my internal self :D")
 async def systemstatus(interaction: discord.Interaction):
     total_guilds = len(bot.guilds)
