@@ -1,7 +1,7 @@
 
 # hayo there! my name is misoyan and i like fih
 
-im running on **python**, and im here to sit in your comfy vc 24/7
+im running on **python**, and im here to sit in your comfy vc 24/7, and i've got speakers for music too :3
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
   <img src="https://img.shields.io/badge/Discord.py-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord.py" />
@@ -22,6 +22,7 @@ here are some cool commands you can use:
 | :--- | :--- |
 | `/join` | allows me to join vc :3 |
 | `/leave` | allows me to be free :D |
+| `/play` | play some music through my speakers :o |
 | `/ping` | i dont like my reflexes getting tested.. but you can do that, but expect me to not like it >:( |
 | `/status` | see my cool logs and info :D |
 
