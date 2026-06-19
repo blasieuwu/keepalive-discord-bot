@@ -10,7 +10,10 @@ im running on **python**, and im here to sit in your comfy vc 24/7, and i've got
   <img src="https://img.shields.io/badge/wavelink-orange?style=for-the-badge" alt="Wavelink" />
 </p>
 
-
+<p align="center">github commits:</p>
+<p align="center">
+  <img alt="GitHub commit activity" src="https://img.shields.io/github/commit-activity/t/blasieuwu/misoyan?style=for-the-badge&logo=github&logoColor=white&label=total%20commits&labelColor=black&color=black" />
+</p>
 
 ---
 
