@@ -65,7 +65,14 @@ reply_list = [
     "i loveeee fih",
     "hi, my name is misoyan and I AM A FIH",
     "hello :D",
-    "the fih gods are watching us"
+    "the fih gods are watching us",
+    "https://tenor.com/view/spinning-fish-gif-11746948154213447163",
+    "https://tenor.com/view/upside-down-spinning-fish-long-sticker-gif-14191013706827067344",
+    "https://tenor.com/view/pog-gif-14149886028736974766",
+    "https://tenor.com/view/silly-cat-doodle-fish-nibble-cat-eating-fish-gif-15126373179558858541",
+    "https://tenor.com/view/screaming-fish-fish-fish-finger-gif-9883040399517041611",
+    "https://tenor.com/view/kiracord-fish-gif-22855500",
+    "https://tenor.com/view/cat-cat-pufferfish-pufferfish-cat-fish-catfish-gif-9997139051265883971"
 ]
 
 class FullSystemControlPanel(discord.ui.View):
