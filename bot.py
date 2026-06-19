@@ -29,6 +29,10 @@ target_voice_channel_id = 123456789012345678  # default home channel
 bot_token = os.environ.get("DISCORD_BOT_TOKEN")
 render_port = os.environ.get("PORT")      # reads render's network port variable
 
+# --- 🔒 CENTRALIZED RECONNECT CONCURRENCY LOCK ---
+# prevents system layers from fighting each other over the connection pipeline
+reconnect_lock = asyncio.Lock()
+
 # settings panel (pls no touch)
 # oke -kam
 misoyan_settings = {
@@ -163,19 +167,13 @@ async def connect_external_audio_node():
     """establishes a persistent socket tunnel to the public web server cluster"""
     await bot.wait_until_ready()
 
-    # wavelink stuff
-    # 1. pull strings from render's environment table (or use fallbacks if empty)
     lava_host = os.getenv("LAVALINK_HOST", "lava.link")
     lava_port = os.getenv("LAVALINK_PORT", "80")
     lava_pass = os.getenv("LAVALINK_PASSWORD", "youshallnotpass")
 
-    # 2. handle the secure websocket protocol check
-    # if port is 443, it uses secure connection (wss://), otherwise standard web socket (ws://)
     is_secure = True if lava_port == "443" else False
     protocol = "https" if is_secure else "http"
-
     
-    # packing the community credentials into a node container profile
     nodes = [
         wavelink.Node(
             identifier="misoyan_immortal_v4",
@@ -185,14 +183,12 @@ async def connect_external_audio_node():
     ]
     
     try:
-        # hook misoyan directly into the network server pool
         await wavelink.Pool.connect(nodes=nodes, client=bot)
     except Exception as e:
         print(f"[!] audio node pipeline crash on startup: {e}")
 
 @bot.event
 async def on_wavelink_node_ready(payload: wavelink.NodeReadyEventPayload):
-    """triggers the absolute millisecond the web node locks handshakes with your script"""
     print(f"\n[+] network pipeline active! audio node '{payload.node.identifier}' is holding her voice core.")
 
 # --- 🛡️ THE NATIVE VOICE SENTINEL GUARD ---
@@ -202,29 +198,41 @@ async def native_voice_sentinel_loop():
     if not misoyan_settings["all_features"] or not misoyan_settings["vc_joining"]:
         return
 
-    try:
-        global target_voice_channel_id
-        home_channel = bot.get_channel(target_voice_channel_id)
-        if home_channel and isinstance(home_channel, discord.VoiceChannel):
-            
-            try:
-                # get the active wavelink player object mapped to this server guild
-                player: wavelink.Player = wavelink.Pool.get_node().get_player(home_channel.guild.id)
-            except Exception:
-                player = None
-            
-            # if the player doesn't exist or isn't connected to the web socket, trigger entry!
-            if not player or not player.connected:
-                print("damn im gone from the vc. lemme reconnect via web node injector...")
-                # we pass cls=wavelink.Player to intercept the voice client creation pipeline
-                await home_channel.connect(cls=wavelink.Player)
+    # skip check execution if the listener layer is currently re-handshaking the gateway
+    if reconnect_lock.locked():
+        return
+
+    async with reconnect_lock:
+        try:
+            global target_voice_channel_id
+            home_channel = bot.get_channel(target_voice_channel_id)
+            if home_channel and isinstance(home_channel, discord.VoiceChannel):
                 
-            elif player.channel.id != target_voice_channel_id:
-                print("im in the wrong channel. reconnecting back...")
-                await player.move_to(home_channel)
+                try:
+                    player: wavelink.Player = wavelink.Pool.get_node().get_player(home_channel.guild.id)
+                except Exception:
+                    player = None
                 
-    except Exception as e:
-        print(f"sentinel loop encounter flaw: {e}")
+                if not player or not player.connected:
+                    print("damn im gone from the vc. lemme reconnect via web node injector...")
+                    
+                    # force clean up lying internal engine cache states before firing
+                    if home_channel.guild.voice_client:
+                        try:
+                            await home_channel.guild.voice_client.disconnect(force=True)
+                            await asyncio.sleep(1.5)
+                        except Exception:
+                            pass
+
+                    await home_channel.connect(cls=wavelink.Player)
+                    
+                elif player.channel.id != target_voice_channel_id:
+                    print("im in the wrong channel. reconnecting back...")
+                    await player.move_to(home_channel)
+                    
+        except Exception as e:
+            print(f"sentinel loop encounter flaw: {e}")
+            await asyncio.sleep(5.0)  # injection protection backoff buffer
 
 # "feeling diffrent today"
 @tasks.loop(minutes=2.5)
@@ -233,12 +241,11 @@ async def cycle_status_loop():
     if not misoyan_settings["all_features"] or not misoyan_settings["status_changes"]:
         return
 
-    # dynamic loop check: adjust the clock speed on the fly depending on boolean state
     current_interval = cycle_status_loop.minutes
     if misoyan_settings["status_change_delay"] and current_interval != 1.0:
-        cycle_status_loop.change_interval(minutes=1.0) # speed it up to 1 minute ticks
+        cycle_status_loop.change_interval(minutes=1.0)
     elif not misoyan_settings["status_change_delay"] and current_interval != 2.5:
-        cycle_status_loop.change_interval(minutes=2.5) # slow it back down to standard duration
+        cycle_status_loop.change_interval(minutes=2.5)
 
     selected_status, selected_note = random.choice(status_pool)
     try:
@@ -256,44 +263,55 @@ async def on_ready():
     except Exception as e:
         print(f"failed to sync slash commands: {e}")
         
-    # timer goes tick tick yeah :D
     if not cycle_status_loop.is_running():
         cycle_status_loop.start()
         print("misoyan's status note rotation schedule has officially started.")
         
-    # ignite our background tracking engines
     if not native_voice_sentinel_loop.is_running():
         native_voice_sentinel_loop.start()
         print("[sentinel] persistent voice monitor initialized.")
         
-    # fire up the web node handshake routine!
     bot.loop.create_task(connect_external_audio_node())
 
 # intercept system to make sure nobody boots her out of paradise
 @bot.event
 async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-    # we only give a shit if the person being moved is misoyan herself
     if member.id == bot.user.id:
-        # check if she was kicked entirely or dragged into a different room
         if after.channel is None or after.channel.id != target_voice_channel_id:
             print("oh shit, i think its time to reconnect")
             
             if misoyan_settings["all_features"] and misoyan_settings["vc_joining"]:
-                try:
-                    player: wavelink.Player = wavelink.Pool.get_node().get_player(member.guild.id)
-                    if player:
-                        await player.disconnect()
-                except Exception as e:
-                    print(f"couldn't wipe dead voice handle: {e}")
-                
-                # reconnect uhh... whateves
-                home_channel = bot.get_channel(target_voice_channel_id)
-                if home_channel and isinstance(home_channel, discord.VoiceChannel):
+                # skip immediately if the sentinel task is already managing a network handshake loop
+                if reconnect_lock.locked():
+                    print("[lock] reconnect task already running elsewhere. dropping event bubble hook.")
+                    return
+
+                async with reconnect_lock:
                     try:
-                        print(f"snapping back to home vc -> {home_channel.name}")
-                        await home_channel.connect(cls=wavelink.Player)
+                        player: wavelink.Player = wavelink.Pool.get_node().get_player(member.guild.id)
+                        if player:
+                            await player.disconnect()
+                            await asyncio.sleep(1.0)
                     except Exception as e:
-                        print(f"instant intercept recovery failed: {e}. backup loop will catch it.")
+                        print(f"couldn't wipe dead voice handle: {e}")
+                    
+                    home_channel = bot.get_channel(target_voice_channel_id)
+                    if home_channel and isinstance(home_channel, discord.VoiceChannel):
+                        try:
+                            print(f"snapping back to home vc -> {home_channel.name}")
+                            
+                            # check if core library container state is out of sync with discord's gateway
+                            if member.guild.voice_client:
+                                try:
+                                    await member.guild.voice_client.disconnect(force=True)
+                                    await asyncio.sleep(1.5)
+                                except Exception:
+                                    pass
+
+                            await home_channel.connect(cls=wavelink.Player)
+                        except Exception as e:
+                            print(f"instant intercept recovery failed: {e}. backup loop will catch it.")
+                            await asyncio.sleep(5.0)  # ⚠️ crucial machine-gun security backoff lock delay!
 
 # "misoyan what you like?"
 @bot.event
@@ -301,11 +319,9 @@ async def on_message(message: discord.Message):
     if message.author.bot:
         return
 
-    # check master firewall switches first
     if not misoyan_settings["all_features"] or message.author.id in misoyan_settings["blacklist"]:
         return
         
-    # verify if text parsing is allowed
     if not misoyan_settings["fih_replies"]:
         return
 
@@ -366,7 +382,6 @@ async def leave(interaction: discord.Interaction):
 @bot.tree.command(name="play", description="blast some tracks through misoyan's powerful speakers!")
 @app_commands.describe(search="the song name, artist, or direct video url you want to play")
 async def play(interaction: discord.Interaction, search: str):
-    # checking master firewall switches first
     if not misoyan_settings["all_features"]:
         await interaction.response.send_message("sorry, but blasie has disabled this feature.", ephemeral=True)
         return
@@ -375,41 +390,32 @@ async def play(interaction: discord.Interaction, search: str):
         await interaction.response.send_message("you are on my blacklist. no speakers for you.", ephemeral=True)
         return
 
-    # check if user is in a vc
     if not interaction.user.voice or not interaction.user.voice.channel:
         await interaction.response.send_message("join a voice channel first, you dummy! i need an audience. :c", ephemeral=True)
         return
 
     user_channel = interaction.user.voice.channel
-    await interaction.response.defer()  # give nexcloud node a few seconds to parse the query
+    await interaction.response.defer()
 
     try:
-        # fetch or create player for this guild server
         node = wavelink.Pool.get_node()
         player: wavelink.Player = node.get_player(interaction.guild.id)
 
-        # if she's not connected anywhere, connect her straight to the user
         if not player or not player.connected:
             print(f"[play] connecting voice client node injector to: {user_channel.name}")
             player = await user_channel.connect(cls=wavelink.Player)
             global target_voice_channel_id
             target_voice_channel_id = user_channel.id
 
-        # search for the track payload using wavelink v3 api engine
-        # this handles search keywords OR direct urls natively!
         tracks = await wavelink.Playable.search(search)
         
         if not tracks:
             await interaction.followup.send(f"i couldn't find anything for `{search}`... are you sure that exists? :c")
             return
 
-        # pick the very first track result matched
         track = tracks[0]
-
-        # play the audio track through the socket channel
         await player.play(track)
         
-        # build a cute embed to show off what's playing
         embed = discord.Embed(
             title="now playing!",
             description=f"**[{track.title}]({track.uri})**",
@@ -418,13 +424,11 @@ async def play(interaction: discord.Interaction, search: str):
         if track.author:
             embed.add_field(name="artist/creator", value=f"`{track.author}`", inline=True)
         if track.length:
-            # convert milliseconds to minutes:seconds
             minutes = int((track.length // 1000) // 60)
             seconds = int((track.length // 1000) % 60)
             embed.add_field(name="duration", value=f"`{minutes}:{seconds:02d}`", inline=True)
             
         embed.set_footer(text=f"requested by {interaction.user.name} :3")
-        
         await interaction.followup.send(embed=embed)
 
     except Exception as e:
@@ -450,7 +454,6 @@ async def systemstatus(interaction: discord.Interaction):
     )
 
     embed.set_thumbnail(url=bot_thumbnail)
-    
     embed.add_field(name="reflex times: ", value=f"`{latency}ms`", inline=False)
     embed.add_field(name="servers i'm in: ", value=f"`{total_guilds} servers`", inline=False)
     embed.add_field(name="vcs i'm in right now: ", value=f"`{current_vc_connections} active vcs`", inline=False)
@@ -507,7 +510,6 @@ async def restrict_user(interaction: discord.Interaction, target: discord.User):
 # --- RENDER NETWORK PROXY SYSTEM CHECK BYPASS ---
 # SONNNNNNNNNNNNNNNNNNNNNN😭😭😭 -kam
 def run_dummy_server(port):
-    """spins up a dead-simple server on an isolated background thread to keep render awake"""
     try:
         server_address = ('0.0.0.0', int(port))
         httpd = HTTPServer(server_address, SimpleHTTPRequestHandler)
