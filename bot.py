@@ -72,7 +72,12 @@ reply_list = [
     "https://tenor.com/view/silly-cat-doodle-fish-nibble-cat-eating-fish-gif-15126373179558858541",
     "https://tenor.com/view/screaming-fish-fish-fish-finger-gif-9883040399517041611",
     "https://tenor.com/view/kiracord-fish-gif-22855500",
-    "https://tenor.com/view/cat-cat-pufferfish-pufferfish-cat-fish-catfish-gif-9997139051265883971"
+    "https://tenor.com/view/cat-cat-pufferfish-pufferfish-cat-fish-catfish-gif-9997139051265883971",
+    "praise fih",
+    "killer fish from san diego",
+    "fih party",
+    "spinning fish",
+    "me and fih :3"
 ]
 
 class FullSystemControlPanel(discord.ui.View):
