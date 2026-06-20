@@ -369,8 +369,16 @@ async def leave(interaction: discord.Interaction):
         await interaction.response.send_message("im not connected to any voice node...", ephemeral=True)
 
 @bot.tree.command(name="play", description="blast some tracks through misoyan's powerful speakers!")
-@app_commands.describe(search="the song name, artist, or direct video url you want to play")
-async def play(interaction: discord.Interaction, search: str):
+@app_commands.describe(
+    search="the song name, artist, or direct url you want to play",
+    provider="choose your search engine (defaults to soundcloud to avoid hf network issues)"
+)
+@app_commands.choices(provider=[
+    app_commands.Choice(name="soundcloud", value="scsearch:"),
+    app_commands.Choice(name="youtube (may fail)", value="ytsearch:"),
+    app_commands.Choice(name="youtube music (may fail)", value="ytmsearch:")
+])
+async def play(interaction: discord.Interaction, search: str, provider: app_commands.Choice[str] = None):
     if not misoyan_settings["all_features"]:
         await interaction.response.send_message("sorry, but blasie has disabled this feature.", ephemeral=True)
         return
@@ -397,7 +405,16 @@ async def play(interaction: discord.Interaction, search: str):
             target_voice_channel_id = user_channel.id
             misoyan_settings["need_reconnection"] = False
 
-        tracks = await wavelink.Playable.search(search)
+        # --- dynamic query builder logic ---
+        # if it's a direct url link, pass it raw without prefixes
+        if search.startswith("http://") or search.startswith("https://"):
+            query = search
+        else:
+            # use chosen provider, fallback to soundcloud if left blank
+            prefix = provider.value if provider else "scsearch:"
+            query = f"{prefix}{search}"
+
+        tracks = await wavelink.Playable.search(query)
         
         if not tracks:
             await interaction.followup.send(f"i couldn't find anything for `{search}`... are you sure that exists? :c")
