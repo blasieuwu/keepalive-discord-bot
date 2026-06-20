@@ -410,7 +410,7 @@ async def play(interaction: discord.Interaction, search: str):
             query = cleaned_search
         else:
             import yt_dlp
-            # search using soundcloud formatting inside yt-dlp to bypass youtube cloud bans
+            # target soundcloud for searching to bypass youtube data center blocks entirely
             ydl_opts = {
                 'format': 'bestaudio/best',
                 'default_search': 'scsearch',
@@ -419,25 +419,22 @@ async def play(interaction: discord.Interaction, search: str):
             }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 try:
-                    # render queries soundcloud safely without hitting 403 blocks
                     info = ydl.extract_info(cleaned_search, download=False)
                     if 'entries' in info and info['entries']:
-                        query = info['entries'][0]['url']
-                    elif 'url' in info:
-                        query = info['url']
+                        # forces standard webpage links so metadata reads perfectly
+                        query = info['entries'][0].get('webpage_url') or info['entries'][0]['url']
+                    elif 'webpage_url' in info:
+                        query = info['webpage_url']
                     else:
                         query = cleaned_search
                 except Exception as ytdl_err:
                     print(f"[!] yt-dlp extraction fallback failed: {ytdl_err}")
                     query = cleaned_search
 
-        # --- explicit routing engine to defeat node prefix nesting ---
+        # --- explicit routing engine ---
         if query.startswith("http://") or query.startswith("https://"):
-            # if it's a direct extracted link, load it raw as an HTTP web stream
             tracks = await wavelink.Playable.search(query)
         else:
-            # if it's a plaintext fallback string, explicitly pass the soundcloud source 
-            # this completely overrides any hardcoded default_search parameters on the node
             tracks = await wavelink.Playable.search(query, source="soundcloud")
         
         if not tracks:
