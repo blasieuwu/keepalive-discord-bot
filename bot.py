@@ -371,7 +371,7 @@ async def leave(interaction: discord.Interaction):
 @bot.tree.command(name="play", description="blast some tracks through misoyan's powerful speakers!")
 @app_commands.describe(
     search="the song name, artist, or direct url you want to play",
-    provider="choose your search engine (defaults to soundcloud to avoid hf network issues)"
+    provider="choose your search engine"
 )
 @app_commands.choices(provider=[
     app_commands.Choice(name="soundcloud", value="scsearch:"),
@@ -406,13 +406,35 @@ async def play(interaction: discord.Interaction, search: str, provider: app_comm
             misoyan_settings["need_reconnection"] = False
 
         # --- dynamic query builder logic ---
-        # if it's a direct url link, pass it raw without prefixes
         if search.startswith("http://") or search.startswith("https://"):
             query = search
         else:
-            # use chosen provider, fallback to soundcloud if left blank
-            prefix = provider.value if provider else "scsearch:"
-            query = f"{prefix}{search}"
+            # check if we should route through yt-dlp local extractor on render
+            # if no provider is picked, or if user explicitly chose youtube/youtube music
+            if not provider or provider.value in ["ytsearch:", "ytmsearch:"]:
+                import yt_dlp
+                ydl_opts = {
+                    'format': 'bestaudio/best',
+                    'default_search': provider.value if provider else 'ytsearch',
+                    'noplaylist': True,
+                    'quiet': True
+                }
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    try:
+                        # render searches the web instead of the blocked hugging face ip
+                        info = ydl.extract_info(search, download=False)
+                        if 'entries' in info and info['entries']:
+                            query = info['entries'][0]['url']
+                        elif 'url' in info:
+                            query = info['url']
+                        else:
+                            query = f"{provider.value if provider else 'ytsearch:'}{search}"
+                    except Exception as ytdl_err:
+                        print(f"[!] yt-dlp extraction fallback failed: {ytdl_err}")
+                        query = f"{provider.value if provider else 'ytsearch:'}{search}"
+            else:
+                # fall back to native soundcloud provider prefix
+                query = f"{provider.value}{search}"
 
         tracks = await wavelink.Playable.search(query)
         
