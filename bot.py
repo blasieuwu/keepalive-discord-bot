@@ -370,15 +370,9 @@ async def leave(interaction: discord.Interaction):
 
 @bot.tree.command(name="play", description="blast some tracks through misoyan's powerful speakers!")
 @app_commands.describe(
-    search="the song name, artist, or direct url you want to play",
-    provider="choose your search engine"
+    search="the song name, artist, or direct url you want to play"
 )
-@app_commands.choices(provider=[
-    app_commands.Choice(name="soundcloud", value="scsearch:"),
-    app_commands.Choice(name="youtube (may fail)", value="ytsearch:"),
-    app_commands.Choice(name="youtube music (may fail)", value="ytmsearch:")
-])
-async def play(interaction: discord.Interaction, search: str, provider: app_commands.Choice[str] = None):
+async def play(interaction: discord.Interaction, search: str):
     if not misoyan_settings["all_features"]:
         await interaction.response.send_message("sorry, but blasie has disabled this feature.", ephemeral=True)
         return
@@ -406,7 +400,6 @@ async def play(interaction: discord.Interaction, search: str, provider: app_comm
             misoyan_settings["need_reconnection"] = False
 
         # --- strict prefix cleaning layer ---
-        # strips any manually typed prefixes to prevent double nesting loops
         cleaned_search = search
         for automated_prefix in ["ytsearch:", "ytmsearch:", "scsearch:"]:
             if cleaned_search.lower().startswith(automated_prefix):
@@ -416,36 +409,36 @@ async def play(interaction: discord.Interaction, search: str, provider: app_comm
         if cleaned_search.startswith("http://") or cleaned_search.startswith("https://"):
             query = cleaned_search
         else:
-            # check if we should route through yt-dlp local extractor on render
-            if not provider or provider.value in ["ytsearch:", "ytmsearch:"]:
-                import yt_dlp
-                chosen_search_prefix = provider.value if provider else 'ytsearch:'
-                
-                ydl_opts = {
-                    'format': 'bestaudio/best',
-                    'default_search': chosen_search_prefix.replace(':', ''),
-                    'noplaylist': True,
-                    'quiet': True
-                }
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    try:
-                        # render searches the web instead of the blocked hugging face ip
-                        info = ydl.extract_info(cleaned_search, download=False)
-                        if 'entries' in info and info['entries']:
-                            query = info['entries'][0]['url']
-                        elif 'url' in info:
-                            query = info['url']
-                        else:
-                            query = f"{chosen_search_prefix}{cleaned_search}"
-                    except Exception as ytdl_err:
-                        print(f"[!] yt-dlp extraction fallback failed: {ytdl_err}")
-                        query = f"{chosen_search_prefix}{cleaned_search}"
-            else:
-                # fall back to native soundcloud provider prefix
-                query = f"{provider.value}{cleaned_search}"
+            import yt_dlp
+            # search using soundcloud formatting inside yt-dlp to bypass youtube cloud bans
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'default_search': 'scsearch',
+                'noplaylist': True,
+                'quiet': True
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                try:
+                    # render queries soundcloud safely without hitting 403 blocks
+                    info = ydl.extract_info(cleaned_search, download=False)
+                    if 'entries' in info and info['entries']:
+                        query = info['entries'][0]['url']
+                    elif 'url' in info:
+                        query = info['url']
+                    else:
+                        query = cleaned_search
+                except Exception as ytdl_err:
+                    print(f"[!] yt-dlp extraction fallback failed: {ytdl_err}")
+                    query = cleaned_search
 
-        # execute the track lookup process
-        tracks = await wavelink.Playable.search(query)
+        # --- explicit routing engine to defeat node prefix nesting ---
+        if query.startswith("http://") or query.startswith("https://"):
+            # if it's a direct extracted link, load it raw as an HTTP web stream
+            tracks = await wavelink.Playable.search(query)
+        else:
+            # if it's a plaintext fallback string, explicitly pass the soundcloud source 
+            # this completely overrides any hardcoded default_search parameters on the node
+            tracks = await wavelink.Playable.search(query, source="soundcloud")
         
         if not tracks:
             await interaction.followup.send(f"i couldn't find anything for `{search}`... are you sure that exists? :c")
