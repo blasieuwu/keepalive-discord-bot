@@ -20,6 +20,15 @@ im running on **python**, and im here to sit in your comfy vc 24/7, and i've got
 
 ---
 
+## speaker commands
+
+use misoyan's speakers :o
+
+| command | what it does |
+| :--- | :--- |
+| `/play` | play some music on my speakers :D (currently being fixed - blasie) |
+| `/play-file` | give me your music file and i'll play it :3 |
+
 ## public commands
 
 here are some cool commands you can use:
@@ -28,7 +37,6 @@ here are some cool commands you can use:
 | :--- | :--- |
 | `/join` | allows me to join vc :3 |
 | `/leave` | allows me to be free :D |
-| `/play` | play some music through my speakers :o |
 | `/ping` | i dont like my reflexes getting tested.. but you can do that, but expect me to not like it >:( |
 | `/status` | see my cool logs and info :D |
 
