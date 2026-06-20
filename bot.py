@@ -421,6 +421,68 @@ async def play(interaction: discord.Interaction, search: str):
         print(f"[!] play command architecture threw a flaw: {e}")
         await interaction.followup.send(f"uh oh, my speakers failed: `{e}`", ephemeral=True)
 
+@bot.tree.command(name="play-file", description="upload an audio file from your device for misoyan to play!")
+@app_commands.describe(attachment="drag and drop or select an audio file (.mp3, .wav, .ogg, etc.) from your device")
+async def play_file(interaction: discord.Interaction, attachment: discord.Attachment):
+    if not misoyan_settings["all_features"]:
+        await interaction.response.send_message("sorry, but blasie has disabled this feature.", ephemeral=True)
+        return
+
+    if interaction.user.id in misoyan_settings["blacklist"]:
+        await interaction.response.send_message("you are on my blacklist. no speakers for you.", ephemeral=True)
+        return
+
+    if not interaction.user.voice or not interaction.user.voice.channel:
+        await interaction.response.send_message("join a voice channel first, you dummy! i need an audience. :c", ephemeral=True)
+        return
+
+    # validate that it's actually a readable audio format
+    valid_extensions = [".mp3", ".wav", ".ogg", ".flac", ".m4a"]
+    if not any(attachment.filename.lower().endswith(ext) for ext in valid_extensions):
+        await interaction.response.send_message("hey, that doesn't look like an audio file! please upload an mp3, wav, ogg, flac, or m4a. :c", ephemeral=True)
+        return
+
+    user_channel = interaction.user.voice.channel
+    await interaction.response.defer()
+
+    try:
+        node = wavelink.Pool.get_node()
+        player: wavelink.Player = node.get_player(interaction.guild.id)
+
+        if not player or not player.connected:
+            print(f"[play-file] connecting voice client node injector to: {user_channel.name}")
+            player = await user_channel.connect(cls=wavelink.Player)
+            global target_voice_channel_id
+            target_voice_channel_id = user_channel.id
+            misoyan_settings["need_reconnection"] = False
+
+        # 🚀 THE MAGIC TRICK: pass the discord cdn link straight to wavelink search
+        tracks = await wavelink.Playable.search(attachment.url)
+        
+        if not tracks:
+            await interaction.followup.send("uh oh, my speakers couldn't seem to play that file... :c")
+            return
+
+        track = tracks[0]
+        await player.play(track)
+        
+        embed = discord.Embed(
+            title="now playing uploaded file! 💿",
+            description=f"**{attachment.filename}**",
+            color=0xffcc80
+        )
+        if track.length:
+            minutes = int((track.length // 1000) // 60)
+            seconds = int((track.length // 1000) % 60)
+            embed.add_field(name="duration", value=f"`{minutes}:{seconds:02d}`", inline=True)
+            
+        embed.set_footer(text=f"requested by {interaction.user.name} :3")
+        await interaction.followup.send(embed=embed)
+
+    except Exception as e:
+        print(f"[!] play-file command architecture threw a flaw: {e}")
+        await interaction.followup.send(f"uh oh, my speakers failed: `{e}`", ephemeral=True)
+
 @bot.tree.command(name="status", description="check out my internal self :D")
 async def systemstatus(interaction: discord.Interaction):
     total_guilds = len(bot.guilds)
