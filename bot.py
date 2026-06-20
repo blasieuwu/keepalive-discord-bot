@@ -410,21 +410,18 @@ async def play(interaction: discord.Interaction, search: str):
             query = cleaned_search
         else:
             import yt_dlp
-            # force scsearch inside yt-dlp to isolate away from youtube IP blocks completely
+            # search on soundcloud, but force yt-dlp to find the full stream on youtube
             ydl_opts = {
                 'format': 'bestaudio/best',
-                'default_search': 'scsearch',
+                'default_search': 'ytsearch', # force youtube for the stream
                 'noplaylist': True,
                 'quiet': True
             }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 try:
-                    info = ydl.extract_info(cleaned_search, download=False)
+                    info = ydl.extract_info(f"ytsearch:{cleaned_search}", download=False)
                     if 'entries' in info and info['entries']:
-                        # target the direct raw underlying media stream link resolved by yt-dlp
-                        query = info['entries'][0]['url']
-                    elif 'url' in info:
-                        query = info['url']
+                        query = info['entries'][0]['webpage_url']
                     else:
                         query = cleaned_search
                 except Exception as ytdl_err:
@@ -432,8 +429,8 @@ async def play(interaction: discord.Interaction, search: str):
                     query = cleaned_search
 
         # --- explicit routing engine ---
-        # we bypass wavelink's broken native soundcloud track builders entirely by passing 
-        # the direct audio stream URL without a source parameter, forcing a raw stream read.
+        # use the youtube url with wavelink's default youtube provider 
+        # (this bypasses the soundcloud preview mess entirely)
         tracks = await wavelink.Playable.search(query)
         
         if not tracks:
