@@ -410,7 +410,7 @@ async def play(interaction: discord.Interaction, search: str):
             query = cleaned_search
         else:
             import yt_dlp
-            # target soundcloud for searching to bypass youtube data center blocks entirely
+            # force scsearch inside yt-dlp to isolate away from youtube IP blocks completely
             ydl_opts = {
                 'format': 'bestaudio/best',
                 'default_search': 'scsearch',
@@ -421,10 +421,10 @@ async def play(interaction: discord.Interaction, search: str):
                 try:
                     info = ydl.extract_info(cleaned_search, download=False)
                     if 'entries' in info and info['entries']:
-                        # forces standard webpage links so metadata reads perfectly
-                        query = info['entries'][0].get('webpage_url') or info['entries'][0]['url']
-                    elif 'webpage_url' in info:
-                        query = info['webpage_url']
+                        # target the direct raw underlying media stream link resolved by yt-dlp
+                        query = info['entries'][0]['url']
+                    elif 'url' in info:
+                        query = info['url']
                     else:
                         query = cleaned_search
                 except Exception as ytdl_err:
@@ -432,10 +432,9 @@ async def play(interaction: discord.Interaction, search: str):
                     query = cleaned_search
 
         # --- explicit routing engine ---
-        if query.startswith("http://") or query.startswith("https://"):
-            tracks = await wavelink.Playable.search(query)
-        else:
-            tracks = await wavelink.Playable.search(query, source="soundcloud")
+        # we bypass wavelink's broken native soundcloud track builders entirely by passing 
+        # the direct audio stream URL without a source parameter, forcing a raw stream read.
+        tracks = await wavelink.Playable.search(query)
         
         if not tracks:
             await interaction.followup.send(f"i couldn't find anything for `{search}`... are you sure that exists? :c")
