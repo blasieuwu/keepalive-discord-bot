@@ -2,3 +2,4 @@ discord.py
 PyNaCl
 davey
 wavelink
+yt-dlp
