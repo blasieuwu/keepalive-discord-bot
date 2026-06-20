@@ -405,37 +405,46 @@ async def play(interaction: discord.Interaction, search: str, provider: app_comm
             target_voice_channel_id = user_channel.id
             misoyan_settings["need_reconnection"] = False
 
+        # --- strict prefix cleaning layer ---
+        # strips any manually typed prefixes to prevent double nesting loops
+        cleaned_search = search
+        for automated_prefix in ["ytsearch:", "ytmsearch:", "scsearch:"]:
+            if cleaned_search.lower().startswith(automated_prefix):
+                cleaned_search = cleaned_search[len(automated_prefix):].strip()
+
         # --- dynamic query builder logic ---
-        if search.startswith("http://") or search.startswith("https://"):
-            query = search
+        if cleaned_search.startswith("http://") or cleaned_search.startswith("https://"):
+            query = cleaned_search
         else:
             # check if we should route through yt-dlp local extractor on render
-            # if no provider is picked, or if user explicitly chose youtube/youtube music
             if not provider or provider.value in ["ytsearch:", "ytmsearch:"]:
                 import yt_dlp
+                chosen_search_prefix = provider.value if provider else 'ytsearch:'
+                
                 ydl_opts = {
                     'format': 'bestaudio/best',
-                    'default_search': provider.value if provider else 'ytsearch',
+                    'default_search': chosen_search_prefix.replace(':', ''),
                     'noplaylist': True,
                     'quiet': True
                 }
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     try:
                         # render searches the web instead of the blocked hugging face ip
-                        info = ydl.extract_info(search, download=False)
+                        info = ydl.extract_info(cleaned_search, download=False)
                         if 'entries' in info and info['entries']:
                             query = info['entries'][0]['url']
                         elif 'url' in info:
                             query = info['url']
                         else:
-                            query = f"{provider.value if provider else 'ytsearch:'}{search}"
+                            query = f"{chosen_search_prefix}{cleaned_search}"
                     except Exception as ytdl_err:
                         print(f"[!] yt-dlp extraction fallback failed: {ytdl_err}")
-                        query = f"{provider.value if provider else 'ytsearch:'}{search}"
+                        query = f"{chosen_search_prefix}{cleaned_search}"
             else:
                 # fall back to native soundcloud provider prefix
-                query = f"{provider.value}{search}"
+                query = f"{provider.value}{cleaned_search}"
 
+        # execute the track lookup process
         tracks = await wavelink.Playable.search(query)
         
         if not tracks:
