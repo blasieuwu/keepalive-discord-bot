@@ -29,6 +29,13 @@ target_voice_channel_id = 123456789012345678  # default home channel
 bot_token = os.environ.get("DISCORD_BOT_TOKEN")
 render_port = os.environ.get("PORT")      # reads render's network port variable
 
+# --- LAVALINK CONNECTION CONFIG ENVIRONMENT VARS ---
+lava_host = os.getenv("LAVALINK_HOST", "lava.link")
+lava_port = os.getenv("LAVALINK_PORT", "80")
+lava_pass = os.getenv("LAVALINK_PASSWORD", "youshallnotpass")
+# reads your new lavalink_secure env flag (defaults to false if not present)
+lava_secure_env = os.getenv("LAVALINK_SECURE", "false").lower() == "true"
+
 # settings panel (pls no touch)
 # oke -kam
 misoyan_settings = {
@@ -176,11 +183,8 @@ async def connect_external_audio_node():
     """establishes a persistent socket tunnel to the public web server cluster"""
     await bot.wait_until_ready()
 
-    lava_host = os.getenv("LAVALINK_HOST", "lava.link")
-    lava_port = os.getenv("LAVALINK_PORT", "80")
-    lava_pass = os.getenv("LAVALINK_PASSWORD", "youshallnotpass")
-
-    is_secure = True if lava_port == "443" else False
+    # uses your newly passed flag logic to accurately track ws vs wss routing layouts
+    is_secure = lava_secure_env or lava_port == "443"
     protocol = "https" if is_secure else "http"
     
     nodes = [
