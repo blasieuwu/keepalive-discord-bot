@@ -409,11 +409,9 @@ async def play(interaction: discord.Interaction, search: str):
         if cleaned_search.startswith("http://") or cleaned_search.startswith("https://"):
             tracks = await wavelink.Playable.search(cleaned_search)
         else:
-            # Force the official youtube-plugin search prefix
-            # 'ytmsearch:' targets YouTube Music via InnerTube
-            search_query = f"ytmsearch:{cleaned_search}"
-            print(f"[play] formatting text search query for plugin: {search_query}")
-            tracks = await wavelink.Playable.search(search_query)
+            # Let wavelink use its default or pass the text raw to prevent double prefixes
+            print(f"[play] feeding raw text search to player array: {cleaned_search}")
+            tracks = await wavelink.Playable.search(cleaned_search)
         
         if not tracks:
             await interaction.followup.send(f"i couldn't find anything for `{search}`... are you sure that exists? :c")
