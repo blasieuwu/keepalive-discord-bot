@@ -6,7 +6,7 @@ from http.server import SimpleHTTPRequestHandler, HTTPServer  # basic server cla
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
-import wavelink  # 🚀 THE NEW IMMORTAL AUDIO BACKEND BRIDGE
+import wavelink  # this powers her speakers
 
 # make bot can read the word "misoyan"
 intents = discord.Intents.default()
@@ -29,7 +29,7 @@ target_voice_channel_id = 123456789012345678  # default home channel
 bot_token = os.environ.get("DISCORD_BOT_TOKEN")
 render_port = os.environ.get("PORT")      # reads render's network port variable
 
-# --- LAVALINK CONNECTION CONFIG ENVIRONMENT VARS ---
+# lavalink stuff
 lava_host = os.getenv("LAVALINK_HOST", "lava.link")
 lava_port = os.getenv("LAVALINK_PORT", "80")
 lava_pass = os.getenv("LAVALINK_PASSWORD", "youshallnotpass")
@@ -45,8 +45,8 @@ misoyan_settings = {
     "status_changes": True,        # enables the random presence color updates
     "status_change_delay": True,   # toggles whether the loop clock runs fast or normal
     "fih_replies": True,           # controls the on_message regex string listener
-    "need_reconnection": False,    # 🚀 YOUR NEW STATE-DRIVEN RECOVERY FLAG
-    "is_connecting": False,        # 🔒 MUTUAL EXCLUSION LOCK FOR SENTINEL VS COMMANDS
+    "need_reconnection": False,    # "i dont need to connect rn, im alr connected :sob:"
+    "is_connecting": False,        # "yo im alr connecting"
     "blacklist": set()             # absolute snowflake number IDs of restricted humans
 }
 
@@ -179,7 +179,7 @@ class FullSystemControlPanel(discord.ui.View):
         self.update_panel_layout()
         await interaction.response.edit_message(embed=self.generate_dashboard_embed(), view=self)
 
-# --- 🌐 IMMORTAL BACKEND NODE POOL COUPLING ---
+# we use wavelink to manage the audio
 async def connect_external_audio_node():
     """establishes a persistent socket tunnel to the public web server cluster"""
     await bot.wait_until_ready()
@@ -205,14 +205,13 @@ async def connect_external_audio_node():
 async def on_wavelink_node_ready(payload: wavelink.NodeReadyEventPayload):
     print(f"\n[+] network pipeline active! audio node '{payload.node.identifier}' is holding her voice core.")
 
-# --- 🛡️ THE NATIVE VOICE SENTINEL GUARD ---
+# "make sure she's connected or i'll beat her up"
 @tasks.loop(seconds=15)
 async def native_voice_sentinel_loop():
     """discord.ext.tasks automatically monitors, isolates, and heals crashes silently!"""
     if not misoyan_settings["all_features"] or not misoyan_settings["vc_joining"]:
         return
 
-    # 🔒 BLOCK EXECUTION IF NATIVE INTERACTION HANDSHAKE IS MID-WAY
     if misoyan_settings["is_connecting"]:
         print("[sentinel] manual connection routine layer currently locking thread, standing down...")
         return
@@ -294,7 +293,7 @@ async def on_ready():
 # intercept system to make sure nobody boots her out of paradise
 @bot.event
 async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-    # 🛡️ THE CRITICAL GUARD CLAUSE: completely ignore everyone who isn't misoyan
+    # "you're not me, stop impersonating"
     if member.id != bot.user.id:
         return
 
@@ -487,7 +486,7 @@ async def play_file(interaction: discord.Interaction, attachment: discord.Attach
             target_voice_channel_id = user_channel.id
             misoyan_settings["need_reconnection"] = False
 
-        # 🚀 THE MAGIC TRICK: pass the discord cdn link straight to wavelink search
+        # this lets us play the file
         tracks = await wavelink.Playable.search(attachment.url)
         
         if not tracks:
@@ -588,7 +587,7 @@ async def restrict_user(interaction: discord.Interaction, target: discord.User):
         misoyan_settings["blacklist"].add(target.id)
         await interaction.response.send_message(f"blacklisted. **{target.name}** has been restricted.", ephemeral=True)
 
-# --- RENDER NETWORK PROXY SYSTEM CHECK BYPASS ---
+# "just make sure we're not getting silenced"
 # SONNNNNNNNNNNNNNNNNNNNNN😭😭😭 -kam
 def run_dummy_server(port):
     try:
