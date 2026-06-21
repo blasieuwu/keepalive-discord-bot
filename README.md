@@ -29,6 +29,8 @@ use misoyan's speakers :o
 | `/play` | play some music on my speakers :D (currently being fixed - blasie) |
 | `/play-file` | give me your music file and i'll play it :3 |
 
+---
+
 ## public commands
 
 here are some cool commands you can use:
