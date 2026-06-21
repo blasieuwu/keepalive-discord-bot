@@ -46,6 +46,7 @@ misoyan_settings = {
     "status_change_delay": True,   # toggles whether the loop clock runs fast or normal
     "fih_replies": True,           # controls the on_message regex string listener
     "need_reconnection": False,    # 🚀 YOUR NEW STATE-DRIVEN RECOVERY FLAG
+    "is_connecting": False,        # 🔒 MUTUAL EXCLUSION LOCK FOR SENTINEL VS COMMANDS
     "blacklist": set()             # absolute snowflake number IDs of restricted humans
 }
 
@@ -211,6 +212,11 @@ async def native_voice_sentinel_loop():
     if not misoyan_settings["all_features"] or not misoyan_settings["vc_joining"]:
         return
 
+    # 🔒 BLOCK EXECUTION IF NATIVE INTERACTION HANDSHAKE IS MID-WAY
+    if misoyan_settings["is_connecting"]:
+        print("[sentinel] manual connection routine layer currently locking thread, standing down...")
+        return
+
     global target_voice_channel_id
     home_channel = bot.get_channel(target_voice_channel_id)
     if not home_channel or not isinstance(home_channel, discord.VoiceChannel):
@@ -343,6 +349,7 @@ async def join(interaction: discord.Interaction):
     target_voice_channel_id = user_channel.id
     
     try:
+        misoyan_settings["is_connecting"] = True  # lock sentinel out
         print(f"establishing client connection to web node for: {user_channel.name}")
         await user_channel.connect(cls=wavelink.Player)
         misoyan_settings["need_reconnection"] = False  # fresh manual bind resets state signals
@@ -350,6 +357,8 @@ async def join(interaction: discord.Interaction):
     except Exception as e:
         print(f"fatal crash inside slash join command execution: {e}")
         await interaction.followup.send(f"failed to join voice channel: {e}", ephemeral=True)
+    finally:
+        misoyan_settings["is_connecting"] = False  # unlock thread safely
 
 @bot.tree.command(name="leave", description="pls let me go :c")
 async def leave(interaction: discord.Interaction):
@@ -393,6 +402,7 @@ async def play(interaction: discord.Interaction, search: str):
         player: wavelink.Player = node.get_player(interaction.guild.id)
 
         if not player or not player.connected:
+            misoyan_settings["is_connecting"] = True  # lock sentinel out during play-triggered connection sequences
             print(f"[play] connecting voice client node injector to: {user_channel.name}")
             player = await user_channel.connect(cls=wavelink.Player)
             global target_voice_channel_id
@@ -438,6 +448,8 @@ async def play(interaction: discord.Interaction, search: str):
     except Exception as e:
         print(f"[!] play command architecture threw a flaw: {e}")
         await interaction.followup.send(f"uh oh, my speakers failed: `{e}`", ephemeral=True)
+    finally:
+        misoyan_settings["is_connecting"] = False  # release lock safely
 
 @bot.tree.command(name="play-file", description="upload an audio file from your device for misoyan to play!")
 @app_commands.describe(attachment="drag and drop or select an audio file (.mp3, .wav, .ogg, etc.) from your device")
@@ -468,6 +480,7 @@ async def play_file(interaction: discord.Interaction, attachment: discord.Attach
         player: wavelink.Player = node.get_player(interaction.guild.id)
 
         if not player or not player.connected:
+            misoyan_settings["is_connecting"] = True  # lock sentinel out during manual file upload plays
             print(f"[play-file] connecting voice client node injector to: {user_channel.name}")
             player = await user_channel.connect(cls=wavelink.Player)
             global target_voice_channel_id
@@ -500,6 +513,8 @@ async def play_file(interaction: discord.Interaction, attachment: discord.Attach
     except Exception as e:
         print(f"[!] play-file command architecture threw a flaw: {e}")
         await interaction.followup.send(f"uh oh, my speakers failed: `{e}`", ephemeral=True)
+    finally:
+        misoyan_settings["is_connecting"] = False  # release lock safely
 
 @bot.tree.command(name="status", description="check out my internal self :D")
 async def systemstatus(interaction: discord.Interaction):
