@@ -401,18 +401,19 @@ async def play(interaction: discord.Interaction, search: str):
 
         # --- strict prefix cleaning layer ---
         cleaned_search = search
-        for automated_prefix in ["ytsearch:", "ytmsearch:", "scsearch:"]:
+        for automated_prefix in ["ytsearch:", "ytmsearch:", "scsearch:", "youtube_music:"]:
             if cleaned_search.lower().startswith(automated_prefix):
                 cleaned_search = cleaned_search[len(automated_prefix):].strip()
 
         # --- native node search routing ---
         if cleaned_search.startswith("http://") or cleaned_search.startswith("https://"):
-            # if it's a direct url link, let wavelink parse it directly
             tracks = await wavelink.Playable.search(cleaned_search)
         else:
-            # force the hugging face node to natively search via youtube music client
-            # this completely bypasses render's blocked ip address
-            tracks = await wavelink.Playable.search(cleaned_search, source="youtube_music")
+            # Force the official youtube-plugin search prefix
+            # 'ytmsearch:' targets YouTube Music via InnerTube
+            search_query = f"ytmsearch:{cleaned_search}"
+            print(f"[play] formatting text search query for plugin: {search_query}")
+            tracks = await wavelink.Playable.search(search_query)
         
         if not tracks:
             await interaction.followup.send(f"i couldn't find anything for `{search}`... are you sure that exists? :c")
