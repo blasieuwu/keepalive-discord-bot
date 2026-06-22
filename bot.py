@@ -205,7 +205,7 @@ async def connect_external_audio_node():
 
 @bot.event
 async def on_wavelink_node_ready(payload: wavelink.NodeReadyEventPayload):
-    print(f"\n[+] yay my mic broke and im connected")
+    print(f"\n[+] yay my mic works and im connected")
 
 # "make sure she's connected or i'll beat her up"
 @tasks.loop(seconds=15)
