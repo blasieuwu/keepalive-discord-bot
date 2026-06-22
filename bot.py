@@ -426,17 +426,19 @@ async def play(interaction: discord.Interaction, search: str):
             await interaction.followup.send(f"i couldn't find anything for `{search}`... are you sure that exists? :c")
             return
 
-        # --- strict results parsing for wavelink v3 layout ---
-        # if it returns a Search wrapper class, extract the flat track list from inside it
-        if isinstance(search_results, wavelink.Search):
+        # --- completely bulletproof track array parsing layer ---
+        if hasattr(search_results, "tracks"):
+            # handles playlist/search collection objects safely without importing strict types
             tracks = search_results.tracks
-        elif hasattr(search_results, 'tracks'):
-            tracks = search_results.tracks
-        else:
+        elif isinstance(search_results, list):
+            # handles a flat tracks array list
             tracks = search_results
+        else:
+            # fallback if it's a weird class wrapper that acts like a single array entry
+            tracks = [search_results]
 
         if not tracks:
-            await interaction.followup.send(f"i found the search wrapper for `{search}`, but the tracks array inside it is completely empty. :c")
+            await interaction.followup.send(f"i processed the search for `{search}`, but the track list returned empty. :c")
             return
 
         track = tracks[0]
