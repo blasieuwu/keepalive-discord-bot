@@ -14,7 +14,7 @@ intents.message_content = True
 intents.voice_states = True     # spy on vc
 
 # blasie's id
-creator_id = int(os.environ.get("CREATOR_ID"), 0)
+creator_id = int(os.environ.get("CREATOR_ID", 0))
 
 # compiler needs this
 bot = commands.Bot(
