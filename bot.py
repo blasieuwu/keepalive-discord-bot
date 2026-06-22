@@ -14,7 +14,7 @@ intents.message_content = True
 intents.voice_states = True     # spy on vc
 
 # blasie's id
-creator_id = int(os.environ.get("CREATOR_ID"))
+creator_id = int(os.environ.get("CREATOR_ID"), 0)
 
 # compiler needs this
 bot = commands.Bot(
@@ -325,8 +325,6 @@ async def on_message(message: discord.Message):
             await message.reply(selected_reply, allowed_mentions=discord.AllowedMentions.none())
         except Exception as e:
             print(f"my chat broke: {e}")
-
-    await bot.process_commands(message)
 
 # slash commands
 @bot.tree.command(name="ping", description="check misoyan's reflexes")
