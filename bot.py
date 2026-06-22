@@ -443,7 +443,7 @@ async def play(interaction: discord.Interaction, search: str):
 
         track = tracks[0]
         await player.play(track)
-        
+
         embed = discord.Embed(
             title="now playing!",
             description=f"**[{track.title}]({track.uri})**",
@@ -458,6 +458,8 @@ async def play(interaction: discord.Interaction, search: str):
             
         embed.set_footer(text=f"requested by {interaction.user.name} :3")
         await interaction.followup.send(embed=embed)
+
+        print(f"[music - play] playing '{track.title} - {track.author}'")
 
     except Exception as e:
         print(f"[!] my speakers nooo- | {e}")
