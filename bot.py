@@ -528,6 +528,8 @@ async def play_file(interaction: discord.Interaction, attachment: discord.Attach
         embed.set_footer(text=f"requested by {interaction.user.name} :3")
         await interaction.followup.send(embed=embed)
 
+        print(f"[music - play-file] now playing '{attachment.filename}'")
+
     except Exception as e:
         print(f"[!] so my speakers broke...: {e}")
         await interaction.followup.send(f"yeah my speaker broken lmaoo: `{e}`", ephemeral=True)
@@ -576,7 +578,7 @@ async def systemsay(interaction: discord.Interaction, message: str):
         await interaction.response.send_message("you're not blasie, get away", ephemeral=True)
         return
         
-    await interaction.response.send_message("fih", ephemeral=True)
+    await interaction.response.send_message("im in your walls with a fih :)", ephemeral=True)
     
     try:
         await interaction.channel.send(message)
