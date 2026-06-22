@@ -61,7 +61,8 @@ status_pool = [
     (discord.Status.invisible, discord.CustomActivity(name="sleeping... zzz")),
     (discord.Status.dnd, discord.CustomActivity(name="planning next stream")),
     (discord.Status.idle, discord.CustomActivity(name="bored as hell")),
-    (discord.Status.online, discord.CustomActivity(name="hanging out on stream"))
+    (discord.Status.online, discord.CustomActivity(name="hanging out on stream")),
+    (discord.Status.dnd, discord.CustomActivity(name="i'm lurking in your walls :3"))
 ]
 
 # misoyan can now say more things
@@ -89,6 +90,7 @@ reply_list = [
     "spinning fish",
     "me and fih :3",
     "🐟"
+    "im in your walls :D"
 ]
 
 class FullSystemControlPanel(discord.ui.View):
