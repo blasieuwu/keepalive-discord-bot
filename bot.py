@@ -407,6 +407,10 @@ async def play(interaction: discord.Interaction, search: str):
             global target_voice_channel_id
             target_voice_channel_id = user_channel.id
             misoyan_settings["need_reconnection"] = False
+            
+            # --- discord handshake structural safety buffer ---
+            # gives lavalink 4.2.2 enough time to finalize the encryption keys with discord
+            await asyncio.sleep(1.5)
 
         # --- strict prefix cleaning layer ---
         cleaned_search = search
@@ -415,15 +419,24 @@ async def play(interaction: discord.Interaction, search: str):
                 cleaned_search = cleaned_search[len(automated_prefix):].strip()
 
         # --- native node search routing ---
-        if cleaned_search.startswith("http://") or cleaned_search.startswith("https://"):
-            tracks = await wavelink.Playable.search(cleaned_search)
-        else:
-            # Let wavelink use its default or pass the text raw to prevent double prefixes
-            print(f"[play] feeding raw text search to player array: {cleaned_search}")
-            tracks = await wavelink.Playable.search(cleaned_search)
+        print(f"[play] feeding raw text search to player array: {cleaned_search}")
+        search_results = await wavelink.Playable.search(cleaned_search)
         
-        if not tracks:
+        if not search_results:
             await interaction.followup.send(f"i couldn't find anything for `{search}`... are you sure that exists? :c")
+            return
+
+        # --- strict results parsing for wavelink v3 layout ---
+        # if it returns a Search wrapper class, extract the flat track list from inside it
+        if isinstance(search_results, wavelink.Search):
+            tracks = search_results.tracks
+        elif hasattr(search_results, 'tracks'):
+            tracks = search_results.tracks
+        else:
+            tracks = search_results
+
+        if not tracks:
+            await interaction.followup.send(f"i found the search wrapper for `{search}`, but the tracks array inside it is completely empty. :c")
             return
 
         track = tracks[0]
