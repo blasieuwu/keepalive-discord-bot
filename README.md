@@ -30,6 +30,8 @@ use misoyan's speakers :o
 | `/play` | play some music on my speakers :D |
 | `/play-file` | give me your music file and i'll play it :3 |
 
+oh btw, you can check [the node that powers her speakers](https://github.com/blasieuwu/misoyan-lavalink-node)
+
 ---
 
 ## public commands
