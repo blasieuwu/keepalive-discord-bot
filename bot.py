@@ -49,6 +49,9 @@ misoyan_settings = {
     "blacklist": set()              # "i hate you, dont talk to me >:("
 }
 
+# asyncio lock to prevent the loop and events from connecting at the same time
+vc_connection_lock = asyncio.Lock()
+
 # clanker has emotions | format: (status, discord note)
 status_pool = [
     (discord.Status.online, discord.CustomActivity(name="hanging out in the vc :3")),
@@ -89,7 +92,7 @@ reply_list = [
     "fih party",
     "spinning fish",
     "me and fih :3",
-    "🐟"
+    "🐟",  # fixed: added missing comma separator here so string literals don't merge!
     "im in your walls :D"
 ]
 
@@ -100,24 +103,18 @@ class FullSystemControlPanel(discord.ui.View):
 
     def update_panel_layout(self):
         """paints the visual styles across both button rows based on your boolean settings"""
-        # row 0: the voicelines and every damn festure 
-        # holy dramatic nicknaming -kam
         self.children[0].label = f"all: {'on' if misoyan_settings['all_features'] else 'off'}"
         self.children[0].style = discord.ButtonStyle.blurple if misoyan_settings["all_features"] else discord.ButtonStyle.grey
 
         self.children[1].label = f"voicelines: {'on' if misoyan_settings['fih_replies'] else 'off'}"
         self.children[1].style = discord.ButtonStyle.blurple if misoyan_settings["fih_replies"] else discord.ButtonStyle.gray
 
-        # row 1: vc shit
-        # son -kam
         self.children[2].label = f"vc join: {'on' if misoyan_settings['vc_joining'] else 'off'}"
         self.children[2].style = discord.ButtonStyle.blurple if misoyan_settings["vc_joining"] else discord.ButtonStyle.grey
 
         self.children[3].label = f"vc leave: {'on' if misoyan_settings['vc_leaving'] else 'off'}"
         self.children[3].style = discord.ButtonStyle.blurple if misoyan_settings["vc_leaving"] else discord.ButtonStyle.grey
 
-        # row 2: discord notes blah blah blah
-        # sonion -kam
         self.children[4].label = f"statuses: {'on' if misoyan_settings['status_changes'] else 'off'}"
         self.children[4].style = discord.ButtonStyle.blurple if misoyan_settings["status_changes"] else discord.ButtonStyle.gray
 
@@ -127,14 +124,11 @@ class FullSystemControlPanel(discord.ui.View):
     def generate_dashboard_embed(self) -> discord.Embed:
         embed = discord.Embed(
             title="the command block",
-            description="my internal organs :3", # why the fuck did i do this - blasie
+            description="my internal organs :3",
             color=0xffcc80
         )
-
         embed.set_thumbnail(url=bot.user.display_avatar.url)
         
-        # just display if on or off
-        # sonbreto -kam
         embed.add_field(name="all features: ", value=f"state: `{'on' if misoyan_settings['all_features'] else 'off'}`", inline=False)
         embed.add_field(name="vc joining", value=f"state: `{'active' if misoyan_settings['vc_joining'] else 'disabled'}`", inline=True)
         embed.add_field(name="vc leaving", value=f"state: `{'active' if misoyan_settings['vc_leaving'] else 'disabled'}`", inline=True)
@@ -146,8 +140,6 @@ class FullSystemControlPanel(discord.ui.View):
         embed.add_field(name="blacklisted people", value=blacklist_mentions, inline=False)
         return embed
 
-    # buttons
-    # SONIONNNNN 😭 -kam
     @discord.ui.button(custom_id="m_all", row=0)
     async def m_all(self, interaction: discord.Interaction, btn: discord.ui.Button):
         misoyan_settings["all_features"] = not misoyan_settings["all_features"]
@@ -184,7 +176,6 @@ class FullSystemControlPanel(discord.ui.View):
         self.update_panel_layout()
         await interaction.response.edit_message(embed=self.generate_dashboard_embed(), view=self)
 
-# we use wavelink to manage the audio
 async def connect_external_audio_node():
     """establishes a persistent socket tunnel to the public web server cluster"""
     await bot.wait_until_ready()
@@ -209,15 +200,13 @@ async def connect_external_audio_node():
 async def on_wavelink_node_ready(payload: wavelink.NodeReadyEventPayload):
     print(f"\n[+] yay my mic works and im connected")
 
-# "make sure she's connected or i'll beat her up"
 @tasks.loop(seconds=15)
 async def native_voice_sentinel_loop():
-    """discord.ext.tasks automatically monitors, isolates, and heals crashes silently!"""
+    """automatically monitors, isolates, and heals crashes silently without spamming dead transport pipes"""
     if not misoyan_settings["all_features"] or not misoyan_settings["vc_joining"]:
         return
 
-    if misoyan_settings["is_connecting"]:
-        print("wait im already connecting")
+    if misoyan_settings["is_connecting"] or vc_connection_lock.locked():
         return
 
     global target_voice_channel_id
@@ -232,30 +221,32 @@ async def native_voice_sentinel_loop():
 
     is_disconnected = not player or not player.connected
 
-    # triggers if backend hardware is down OR if event listener raised the custom state flag
     if is_disconnected or misoyan_settings["need_reconnection"]:
-        print("wait im reconnecting pls wait for me")
-        
-        try:
-            # force clean up lying internal engine cache states before firing
-            if home_channel.guild.voice_client:
-                try:
-                    await home_channel.guild.voice_client.disconnect(force=True)
-                    await asyncio.sleep(1.0)
-                except Exception:
-                    pass
-
-            await home_channel.connect(cls=wavelink.Player)
-            print("im back :3")
+        async with vc_connection_lock:
+            print("wait im reconnecting pls wait for me")
+            misoyan_settings["is_connecting"] = True
             
-            # structural reset: connection is up, lower the emergency signal
-            misoyan_settings["need_reconnection"] = False
-            
-        except Exception as e:
-            print(f"so uhh, my wifi broke: {e}")
-            await asyncio.sleep(5.0)  # injection protection backoff buffer
+            try:
+                if home_channel.guild.voice_client:
+                    try:
+                        await home_channel.guild.voice_client.disconnect(force=True)
+                        await asyncio.sleep(1.5)
+                    except Exception:
+                        pass
 
-# "feeling diffrent today"
+                await home_channel.connect(cls=wavelink.Player)
+                print("im back :3")
+                misoyan_settings["need_reconnection"] = False
+                
+            except Exception as e:
+                print(f"so uhh, my wifi broke: {e}")
+                # if it throws a closing transport error, force lower the flag so it backs off completely
+                if "closing transport" in str(e).lower() or "timeout" in str(e).lower():
+                    misoyan_settings["need_reconnection"] = False
+                await asyncio.sleep(8.0)
+            finally:
+                misoyan_settings["is_connecting"] = False
+
 @tasks.loop(minutes=2.5)
 async def cycle_status_loop():
     await bot.wait_until_ready()
@@ -294,22 +285,19 @@ async def on_ready():
         
     bot.loop.create_task(connect_external_audio_node())
 
-# "wait am i gone from the vc"
 @bot.event
 async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-    # "stop impersonating me D:"
     if member.id != bot.user.id:
         return
 
-    # if misoyan specifically is dropped or moved out of the target slot, flag the engine
     if after.channel is None or after.channel.id != target_voice_channel_id:
         print("wait im not in my vc anymore give me a sec")
         
         if misoyan_settings["all_features"] and misoyan_settings["vc_joining"]:
-            # zero heavy logic or blocking delays here—just trip the wire state flag
-            misoyan_settings["need_reconnection"] = True
+            # only trigger if we aren't already locking the engine state
+            if not misoyan_settings["is_connecting"] and not vc_connection_lock.locked():
+                misoyan_settings["need_reconnection"] = True
 
-# "misoyan what you like?"
 @bot.event
 async def on_message(message: discord.Message):
     if message.author.bot:
@@ -349,17 +337,22 @@ async def join(interaction: discord.Interaction):
     await interaction.response.defer() 
     target_voice_channel_id = user_channel.id
     
-    try:
-        misoyan_settings["is_connecting"] = True  # lock sentinel out
-        print(f"connecting to vc: {user_channel.name}")
-        await user_channel.connect(cls=wavelink.Player)
-        misoyan_settings["need_reconnection"] = False  # fresh manual bind resets state signals
-        await interaction.followup.send(f"im in your vc now :D")
-    except Exception as e:
-        print(f"shit i failed to join: {e}")
-        await interaction.followup.send(f"so i may have failed to connect...: {e}", ephemeral=True)
-    finally:
-        misoyan_settings["is_connecting"] = False  # unlock thread safely
+    if vc_connection_lock.locked():
+        await interaction.followup.send("wait, i'm already trying to adjust my voice cords... hold on!", ephemeral=True)
+        return
+
+    async with vc_connection_lock:
+        try:
+            misoyan_settings["is_connecting"] = True
+            print(f"connecting to vc: {user_channel.name}")
+            await user_channel.connect(cls=wavelink.Player)
+            misoyan_settings["need_reconnection"] = False
+            await interaction.followup.send(f"im in your vc now :D")
+        except Exception as e:
+            print(f"shit i failed to join: {e}")
+            await interaction.followup.send(f"so i may have failed to connect...: {e}", ephemeral=True)
+        finally:
+            misoyan_settings["is_connecting"] = False
 
 @bot.tree.command(name="leave", description="pls let me go :c")
 async def leave(interaction: discord.Interaction):
@@ -370,18 +363,17 @@ async def leave(interaction: discord.Interaction):
     try:
         player: wavelink.Player = wavelink.Pool.get_node().get_player(interaction.guild.id)
         if player and player.connected:
-            misoyan_settings["need_reconnection"] = False  # prevent sentinel loop from immediately fighting this exit
-            await player.disconnect()
-            await interaction.response.send_message("i am free!! (yay :3)", ephemeral=True)
+            async with vc_connection_lock:
+                misoyan_settings["need_reconnection"] = False
+                await player.disconnect()
+                await interaction.response.send_message("i am free!! (yay :3)", ephemeral=True)
         else:
             await interaction.response.send_message("you want me to leave...? im not connected to a vc", ephemeral=True)
     except Exception:
         await interaction.response.send_message("i think my speakers malfunctioned", ephemeral=True)
 
 @bot.tree.command(name="play", description="what song do you want?")
-@app_commands.describe(
-    search="the song name, artist, or direct url you want to play"
-)
+@app_commands.describe(search="the song name, artist, or direct url you want to play")
 async def play(interaction: discord.Interaction, search: str):
     if not misoyan_settings["all_features"]:
         await interaction.response.send_message("my speakers are off rn (disabled)", ephemeral=True)
@@ -403,24 +395,20 @@ async def play(interaction: discord.Interaction, search: str):
         player: wavelink.Player = node.get_player(interaction.guild.id)
 
         if not player or not player.connected:
-            misoyan_settings["is_connecting"] = True  # lock sentinel out during play-triggered connection sequences
-            print(f"[/play] connecting to vc: {user_channel.name}")
-            player = await user_channel.connect(cls=wavelink.Player)
-            global target_voice_channel_id
-            target_voice_channel_id = user_channel.id
-            misoyan_settings["need_reconnection"] = False
-            
-            # --- discord handshake structural safety buffer ---
-            # gives lavalink 4.2.2 enough time to finalize the encryption keys with discord
-            await asyncio.sleep(1.5)
+            async with vc_connection_lock:
+                misoyan_settings["is_connecting"] = True
+                print(f"[/play] connecting to vc: {user_channel.name}")
+                player = await user_channel.connect(cls=wavelink.Player)
+                global target_voice_channel_id
+                target_voice_channel_id = user_channel.id
+                misoyan_settings["need_reconnection"] = False
+                await asyncio.sleep(1.5)
 
-        # --- strict prefix cleaning layer ---
         cleaned_search = search
         for automated_prefix in ["ytsearch:", "ytmsearch:", "scsearch:", "youtube_music:"]:
             if cleaned_search.lower().startswith(automated_prefix):
                 cleaned_search = cleaned_search[len(automated_prefix):].strip()
 
-        # --- native node search routing ---
         print(f"wait, im searching for '{cleaned_search}' rn gimme a sec")
         search_results = await wavelink.Playable.search(cleaned_search)
         
@@ -428,15 +416,11 @@ async def play(interaction: discord.Interaction, search: str):
             await interaction.followup.send(f"so... there's no song named *{search}*. you sure that exists?")
             return
 
-        # --- completely bulletproof track array parsing layer ---
         if hasattr(search_results, "tracks"):
-            # handles playlist/search collection objects safely without importing strict types
             tracks = search_results.tracks
         elif isinstance(search_results, list):
-            # handles a flat tracks array list
             tracks = search_results
         else:
-            # fallback if it's a weird class wrapper that acts like a single array entry
             tracks = [search_results]
 
         if not tracks:
@@ -460,14 +444,13 @@ async def play(interaction: discord.Interaction, search: str):
             
         embed.set_footer(text=f"requested by {interaction.user.name} :3")
         await interaction.followup.send(embed=embed)
-
         print(f"[music - play] playing '{track.title} - {track.author}'")
 
     except Exception as e:
         print(f"[!] my speakers nooo- | {e}")
         await interaction.followup.send(f"so my speakers... uhh: `{e}`", ephemeral=True)
     finally:
-        misoyan_settings["is_connecting"] = False  # release lock safely
+        misoyan_settings["is_connecting"] = False
 
 @bot.tree.command(name="play-file", description="give me your audio file :)")
 @app_commands.describe(attachment="drag and drop or select an audio file (.mp3, .wav, .ogg, etc.) from your device")
@@ -484,7 +467,6 @@ async def play_file(interaction: discord.Interaction, attachment: discord.Attach
         await interaction.response.send_message("join a voice channel first, you dummy! i need an audience. :c", ephemeral=True)
         return
 
-    # validate that it's actually a readable audio format
     valid_extensions = [".mp3", ".wav", ".ogg", ".flac", ".m4a"]
     if not any(attachment.filename.lower().endswith(ext) for ext in valid_extensions):
         await interaction.response.send_message("you sure this is an audio file? doesnt look like it", ephemeral=True)
@@ -498,132 +480,9 @@ async def play_file(interaction: discord.Interaction, attachment: discord.Attach
         player: wavelink.Player = node.get_player(interaction.guild.id)
 
         if not player or not player.connected:
-            misoyan_settings["is_connecting"] = True  # lock sentinel out during manual file upload plays
-            print(f"[play-file] connecting to vc: {user_channel.name}")
-            player = await user_channel.connect(cls=wavelink.Player)
-            global target_voice_channel_id
-            target_voice_channel_id = user_channel.id
-            misoyan_settings["need_reconnection"] = False
-
-        # this lets us play the file
-        tracks = await wavelink.Playable.search(attachment.url)
-        
-        if not tracks:
-            await interaction.followup.send("so my speakers couldnt play that... you sure its a real audio file?")
-            return
-
-        track = tracks[0]
-        await player.play(track)
-        
-        embed = discord.Embed(
-            title="now playing! (file)",
-            description=f"**{attachment.filename}**",
-            color=0xffcc80
-        )
-        if track.length:
-            minutes = int((track.length // 1000) // 60)
-            seconds = int((track.length // 1000) % 60)
-            embed.add_field(name="duration", value=f"`{minutes}:{seconds:02d}`", inline=True)
-            
-        embed.set_footer(text=f"requested by {interaction.user.name} :3")
-        await interaction.followup.send(embed=embed)
-
-        print(f"[music - play-file] now playing '{attachment.filename}'")
-
-    except Exception as e:
-        print(f"[!] so my speakers broke...: {e}")
-        await interaction.followup.send(f"yeah my speaker broken lmaoo: `{e}`", ephemeral=True)
-    finally:
-        misoyan_settings["is_connecting"] = False  # release lock safely
-
-@bot.tree.command(name="status", description="check out my internal self :D")
-async def systemstatus(interaction: discord.Interaction):
-    total_guilds = len(bot.guilds)
-    latency = round(bot.latency * 1000)
-    
-    try:
-        current_vc_connections = 1 if wavelink.Pool.get_node().get_player(interaction.guild.id) else 0
-    except Exception:
-        current_vc_connections = 0
-        
-    bot_thumbnail = bot.user.display_avatar.url
-    
-    embed = discord.Embed(
-        title="misoyan's internal brain :3",
-        description="very simple stuff",
-        color=0x2b2d31
-    )
-
-    embed.set_thumbnail(url=bot_thumbnail)
-    embed.add_field(name="reflex times: ", value=f"`{latency}ms`", inline=False)
-    embed.add_field(name="servers i'm in: ", value=f"`{total_guilds} servers`", inline=False)
-    embed.add_field(name="vcs i'm in right now: ", value=f"`{current_vc_connections} active vcs`", inline=False)
-    
-    embed.set_footer(text="created by blasie :3")   
-    await interaction.response.send_message(embed=embed)
-
-@bot.tree.command(name="suicide", description="[blasie-only] completely kills misoyan.")
-async def systemshutdown(interaction: discord.Interaction):
-    if interaction.user.id != creator_id:
-        await interaction.response.send_message("you're not blasie, get away", ephemeral=True)
-        return
-        
-    await interaction.response.send_message("OUCH D:")
-    await bot.close()
-
-@bot.tree.command(name="say", description="[blasie-only] make misoyan speak :D")
-@app_commands.describe(message="the exact text you want misoyan to broadcast")
-async def systemsay(interaction: discord.Interaction, message: str):
-    if interaction.user.id != creator_id:
-        await interaction.response.send_message("you're not blasie, get away", ephemeral=True)
-        return
-        
-    await interaction.response.send_message("im in your walls with a fih :)", ephemeral=True)
-    
-    try:
-        await interaction.channel.send(message)
-        print(f"'{message}'")
-    except Exception as e:
-        print(f"so i may have failed to send it for you... | {e}")
-
-@bot.tree.command(name="settings", description="[blasie-only] change my internal organs (oh god) :3")
-async def control_panel(interaction: discord.Interaction):
-    if interaction.user.id != creator_id:
-        await interaction.response.send_message("yeah no, shoo.", ephemeral=True)
-        return
-    view = FullSystemControlPanel()
-    await interaction.response.send_message(embed=view.generate_dashboard_embed(), view=view, ephemeral=True)
-
-@bot.tree.command(name="restrict", description="[blasie-only] dont end up in this list.")
-@app_commands.describe(target="the specific person you want to modify settings for")
-async def restrict_user(interaction: discord.Interaction, target: discord.User):
-    if interaction.user.id != creator_id:
-        await interaction.response.send_message("shoo, before you get blacklisted", ephemeral=True)
-        return
-        
-    if target.id in misoyan_settings["blacklist"]:
-        misoyan_settings["blacklist"].remove(target.id)
-        await interaction.response.send_message(f"unblacklisted. **{target.name}** can now trigger misoyan again.", ephemeral=True)
-    else:
-        misoyan_settings["blacklist"].add(target.id)
-        await interaction.response.send_message(f"blacklisted. **{target.name}** has been restricted.", ephemeral=True)
-
-# "just make sure we're not getting silenced"
-# SONNNNNNNNNNNNNNNNNNNNNN😭😭😭 -kam
-def run_dummy_server(port):
-    try:
-        server_address = ('0.0.0.0', int(port))
-        httpd = HTTPServer(server_address, SimpleHTTPRequestHandler)
-        print(f"ok i managed to do it :D | port: {port}")
-        httpd.serve_forever()
-    except Exception as e:
-        print(f"so i kinda failed to start the web server...: {e}")
-
-if __name__ == "__main__":
-    if render_port:
-        threading.Thread(target=run_dummy_server, args=(render_port,), daemon=True).start()
-
-    if bot_token:
-        bot.run(bot_token)
-    else:
-        print("you forgot my token you dummy!")
+            async with vc_connection_lock:
+                misoyan_settings["is_connecting"] = True
+                print(f"[play-file] connecting to vc: {user_channel.name}")
+                player = await user_channel.connect(cls=wavelink.Player)
+                global target_voice_channel_id
+                target_voice_channel_id =
