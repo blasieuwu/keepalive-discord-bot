@@ -572,7 +572,7 @@ async def view_queue(interaction: discord.Interaction):
     except Exception as e:
         await interaction.response.send_message(f"couldn't read the waiting list: `{e}`", ephemeral=True)
 
-@bot.tree.command(name="play-file", description="give me your audio file :)")
+@@bot.tree.command(name="play-file", description="give me your audio file :)")
 @app_commands.describe(attachment="drag and drop or select an audio file (.mp3, .wav, .ogg, etc.) from your device")
 async def play_file(interaction: discord.Interaction, attachment: discord.Attachment):
     if not misoyan_settings["all_features"]:
@@ -587,6 +587,7 @@ async def play_file(interaction: discord.Interaction, attachment: discord.Attach
         await interaction.response.send_message("join a voice channel first, you dummy! i need an audience. :c", ephemeral=True)
         return
 
+    # validate that it's actually a readable audio format
     valid_extensions = [".mp3", ".wav", ".ogg", ".flac", ".m4a"]
     if not any(attachment.filename.lower().endswith(ext) for ext in valid_extensions):
         await interaction.response.send_message("you sure this is an audio file? doesnt look like it", ephemeral=True)
@@ -600,9 +601,132 @@ async def play_file(interaction: discord.Interaction, attachment: discord.Attach
         player: wavelink.Player = node.get_player(interaction.guild.id)
 
         if not player or not player.connected:
-            async with vc_connection_lock:
-                misoyan_settings["is_connecting"] = True
-                print(f"[play-file] connecting to vc: {user_channel.name}")
-                player = await user_channel.connect(cls=wavelink.Player)
-                global target_voice_channel_id
-                target_voice_channel_id =
+            misoyan_settings["is_connecting"] = True  # lock sentinel out during manual file upload plays
+            print(f"[play-file] connecting to vc: {user_channel.name}")
+            player = await user_channel.connect(cls=wavelink.Player)
+            global target_voice_channel_id
+            target_voice_channel_id = user_channel.id
+            misoyan_settings["need_reconnection"] = False
+
+        # this lets us play the file
+        tracks = await wavelink.Playable.search(attachment.url)
+        
+        if not tracks:
+            await interaction.followup.send("so my speakers couldnt play that... you sure its a real audio file?")
+            return
+
+        track = tracks[0]
+        await player.play(track)
+        
+        embed = discord.Embed(
+            title="now playing! (file)",
+            description=f"**{attachment.filename}**",
+            color=0xffcc80
+        )
+        if track.length:
+            minutes = int((track.length // 1000) // 60)
+            seconds = int((track.length // 1000) % 60)
+            embed.add_field(name="duration", value=f"`{minutes}:{seconds:02d}`", inline=True)
+            
+        embed.set_footer(text=f"requested by {interaction.user.name} :3")
+        await interaction.followup.send(embed=embed)
+
+        print(f"[music - play-file] now playing '{attachment.filename}'")
+
+    except Exception as e:
+        print(f"[!] so my speakers broke...: {e}")
+        await interaction.followup.send(f"yeah my speaker broken lmaoo: `{e}`", ephemeral=True)
+    finally:
+        misoyan_settings["is_connecting"] = False  # release lock safely
+
+@bot.tree.command(name="status", description="check out my internal self :D")
+async def systemstatus(interaction: discord.Interaction):
+    total_guilds = len(bot.guilds)
+    latency = round(bot.latency * 1000)
+    
+    try:
+        current_vc_connections = 1 if wavelink.Pool.get_node().get_player(interaction.guild.id) else 0
+    except Exception:
+        current_vc_connections = 0
+        
+    bot_thumbnail = bot.user.display_avatar.url
+    
+    embed = discord.Embed(
+        title="misoyan's internal brain :3",
+        description="very simple stuff",
+        color=0x2b2d31
+    )
+
+    embed.set_thumbnail(url=bot_thumbnail)
+    embed.add_field(name="reflex times: ", value=f"`{latency}ms`", inline=False)
+    embed.add_field(name="servers i'm in: ", value=f"`{total_guilds} servers`", inline=False)
+    embed.add_field(name="vcs i'm in right now: ", value=f"`{current_vc_connections} active vcs`", inline=False)
+    
+    embed.set_footer(text="created by blasie :3")   
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="suicide", description="[blasie-only] completely kills misoyan.")
+async def systemshutdown(interaction: discord.Interaction):
+    if interaction.user.id != creator_id:
+        await interaction.response.send_message("you're not blasie, get away", ephemeral=True)
+        return
+        
+    await interaction.response.send_message("OUCH D:")
+    await bot.close()
+
+@bot.tree.command(name="say", description="[blasie-only] make misoyan speak :D")
+@app_commands.describe(message="the exact text you want misoyan to broadcast")
+async def systemsay(interaction: discord.Interaction, message: str):
+    if interaction.user.id != creator_id:
+        await interaction.response.send_message("you're not blasie, get away", ephemeral=True)
+        return
+        
+    await interaction.response.send_message("im in your walls with a fih :)", ephemeral=True)
+    
+    try:
+        await interaction.channel.send(message)
+        print(f"'{message}'")
+    except Exception as e:
+        print(f"so i may have failed to send it for you... | {e}")
+
+@bot.tree.command(name="settings", description="[blasie-only] change my internal organs (oh god) :3")
+async def control_panel(interaction: discord.Interaction):
+    if interaction.user.id != creator_id:
+        await interaction.response.send_message("yeah no, shoo.", ephemeral=True)
+        return
+    view = FullSystemControlPanel()
+    await interaction.response.send_message(embed=view.generate_dashboard_embed(), view=view, ephemeral=True)
+
+@bot.tree.command(name="restrict", description="[blasie-only] dont end up in this list.")
+@app_commands.describe(target="the specific person you want to modify settings for")
+async def restrict_user(interaction: discord.Interaction, target: discord.User):
+    if interaction.user.id != creator_id:
+        await interaction.response.send_message("shoo, before you get blacklisted", ephemeral=True)
+        return
+        
+    if target.id in misoyan_settings["blacklist"]:
+        misoyan_settings["blacklist"].remove(target.id)
+        await interaction.response.send_message(f"unblacklisted. **{target.name}** can now trigger misoyan again.", ephemeral=True)
+    else:
+        misoyan_settings["blacklist"].add(target.id)
+        await interaction.response.send_message(f"blacklisted. **{target.name}** has been restricted.", ephemeral=True)
+
+# "just make sure we're not getting silenced"
+# SONNNNNNNNNNNNNNNNNNNNNN😭😭😭 -kam
+def run_dummy_server(port):
+    try:
+        server_address = ('0.0.0.0', int(port))
+        httpd = HTTPServer(server_address, SimpleHTTPRequestHandler)
+        print(f"ok i managed to do it :D | port: {port}")
+        httpd.serve_forever()
+    except Exception as e:
+        print(f"so i kinda failed to start the web server...: {e}")
+
+if __name__ == "__main__":
+    if render_port:
+        threading.Thread(target=run_dummy_server, args=(render_port,), daemon=True).start()
+
+    if bot_token:
+        bot.run(bot_token)
+    else:
+        print("you forgot my token you dummy!")
