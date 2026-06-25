@@ -316,6 +316,22 @@ async def on_message(message: discord.Message):
         except Exception as e:
             print(f"my chat broke: {e}")
 
+@bot.event
+async def on_wavelink_track_end(payload: wavelink.TrackEndEventPayload):
+    """automatically plays the next song in line when the current one finishes"""
+    player: wavelink.Player = payload.player
+    
+    # if the queue isn't empty, pull the next track and play it
+    if not player.queue.is_empty:
+        next_track = player.queue.get()
+        try:
+            await player.play(next_track)
+            print(f"[queue] automatically transitioning to: {next_track.title}")
+        except Exception as e:
+            print(f"[!] auto-transition failed: {e}")
+    else:
+        print("[queue] queue is now empty, going silent.")
+
 # slash commands
 @bot.tree.command(name="ping", description="check misoyan's reflexes")
 async def ping(interaction: discord.Interaction):
@@ -674,42 +690,59 @@ async def systemshutdown(interaction: discord.Interaction):
     await interaction.response.send_message("OUCH D:")
     await bot.close()
 
-@bot.tree.command(name="say", description="[blasie-only] make misoyan speak :D")
+@bot.tree.command(name="say", description="[admin/owner] make misoyan speak :D")
 @app_commands.describe(message="the exact text you want misoyan to broadcast")
 async def systemsay(interaction: discord.Interaction, message: str):
-    if interaction.user.id != creator_id:
-        await interaction.response.send_message("you're not blasie, get away", ephemeral=True)
+    # check if user is blasie OR the guild owner OR has administrator permissions
+    is_creator = interaction.user.id == creator_id
+    is_server_owner = interaction.guild and interaction.user.id == interaction.guild.owner_id
+    is_admin = interaction.guild and interaction.user.guild_permissions.administrator
+
+    if not (is_creator or is_server_owner or is_admin):
+        await interaction.response.send_message("you're not blasie or an admin here, get away", ephemeral=True)
         return
         
-    await interaction.response.send_message("im in your walls with a fih :)", ephemeral=True)
-    
+    await interaction.response.send_message("sending message...", ephemeral=True)
     try:
         await interaction.channel.send(message)
-        print(f"'{message}'")
     except Exception as e:
-        print(f"so i may have failed to send it for you... | {e}")
+        print(f"failed to execute /say: {e}")
 
-@bot.tree.command(name="settings", description="[blasie-only] change my internal organs (oh god) :3")
+@bot.tree.command(name="settings", description="[admin/owner] change my internal organs :3")
 async def control_panel(interaction: discord.Interaction):
-    if interaction.user.id != creator_id:
+    is_creator = interaction.user.id == creator_id
+    is_server_owner = interaction.guild and interaction.user.id == interaction.guild.owner_id
+    is_admin = interaction.guild and interaction.user.guild_permissions.administrator
+
+    if not (is_creator or is_server_owner or is_admin):
         await interaction.response.send_message("yeah no, shoo.", ephemeral=True)
         return
+        
     view = FullSystemControlPanel()
     await interaction.response.send_message(embed=view.generate_dashboard_embed(), view=view, ephemeral=True)
 
-@bot.tree.command(name="restrict", description="[blasie-only] dont end up in this list.")
+@bot.tree.command(name="restrict", description="[admin/owner] don't end up in this list.")
 @app_commands.describe(target="the specific person you want to modify settings for")
 async def restrict_user(interaction: discord.Interaction, target: discord.User):
-    if interaction.user.id != creator_id:
+    is_creator = interaction.user.id == creator_id
+    is_server_owner = interaction.guild and interaction.user.id == interaction.guild.owner_id
+    is_admin = interaction.guild and interaction.user.guild_permissions.administrator
+
+    if not (is_creator or is_server_owner or is_admin):
         await interaction.response.send_message("shoo, before you get blacklisted", ephemeral=True)
+        return
+        
+    # prevent server owners or admins from accidentally blacklisting you
+    if target.id == creator_id:
+        await interaction.response.send_message("hmph, very funny. can't do that tho.", ephemeral=True)
         return
         
     if target.id in misoyan_settings["blacklist"]:
         misoyan_settings["blacklist"].remove(target.id)
-        await interaction.response.send_message(f"unblacklisted. **{target.name}** can now trigger misoyan again.", ephemeral=True)
+        await interaction.response.send_message(f"unblacklisted. **{target.name}** can now talk to misoyan again.", ephemeral=True)
     else:
         misoyan_settings["blacklist"].add(target.id)
-        await interaction.response.send_message(f"blacklisted. **{target.name}** has been restricted.", ephemeral=True)
+        await interaction.response.send_message(f"blacklisted. **{target.name}** has been blocked by misoyan.", ephemeral=True)
 
 # "just make sure we're not getting silenced"
 # SONNNNNNNNNNNNNNNNNNNNNN😭😭😭 -kam
