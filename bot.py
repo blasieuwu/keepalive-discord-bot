@@ -572,7 +572,7 @@ async def view_queue(interaction: discord.Interaction):
     except Exception as e:
         await interaction.response.send_message(f"couldn't read the waiting list: `{e}`", ephemeral=True)
 
-@@bot.tree.command(name="play-file", description="give me your audio file :)")
+@bot.tree.command(name="play-file", description="give me your audio file :)")
 @app_commands.describe(attachment="drag and drop or select an audio file (.mp3, .wav, .ogg, etc.) from your device")
 async def play_file(interaction: discord.Interaction, attachment: discord.Attachment):
     if not misoyan_settings["all_features"]:
