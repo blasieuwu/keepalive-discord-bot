@@ -388,9 +388,29 @@ async def leave(interaction: discord.Interaction):
     except Exception:
         await interaction.response.send_message("i think my speakers malfunctioned", ephemeral=True)
 
-@bot.tree.command(name="play", description="what song do you want?")
-@app_commands.describe(search="the song name, artist, or direct url you want to play")
-async def play(interaction: discord.Interaction, search: str):
+# quick helper function so you don't copy-paste the embed block 3 times (for /play command)
+def generate_play_embed(title_text, track, user_name):
+    embed = discord.Embed(title=title_text, description=f"**[{track.title}]({track.uri})**", color=0xffcc80)
+    if track.author:
+        embed.add_field(name="artist/creator", value=f"`{track.author}`", inline=True)
+    if track.length:
+        minutes = int((track.length // 1000) // 60)
+        seconds = int((track.length // 1000) % 60)
+        embed.add_field(name="duration", value=f"`{minutes}:{seconds:02d}`", inline=True)
+    embed.set_footer(text=f"requested by {user_name} :3")
+    return embed
+
+@bot.tree.command(name="play", description="use my speakers :3")
+@app_commands.describe(
+    search="the title or link of the track",
+    timing="how to prioritize this track in the queue layout"
+)
+@app_commands.choices(timing=[
+    app_commands.Choice(name="add to queue (default)", value="queue"),
+    app_commands.Choice(name="play next", value="next"),
+    app_commands.Choice(name="replace current track", value="replace")
+])
+async def play(interaction: discord.Interaction, search: str, timing: str = "queue"):
     if not misoyan_settings["all_features"]:
         await interaction.response.send_message("my speakers are off rn (disabled)", ephemeral=True)
         return
@@ -445,41 +465,36 @@ async def play(interaction: discord.Interaction, search: str):
 
         track = tracks[0]
         
-        if player.playing:
-            # if she's already singing, put it in the waiting line
-            player.queue.put(track)
-            
-            embed = discord.Embed(
-                title="added to queue!",
-                description=f"**[{track.title}]({track.uri})**",
-                color=0xffcc80
-            )
-            embed.add_field(name="position", value=f"`#{len(player.queue)}`", inline=True)
-            if track.author:
-                embed.add_field(name="artist", value=f"`{track.author}`", inline=True)
-            embed.set_footer(text=f"requested by {interaction.user.name} :3")
-            await interaction.followup.send(embed=embed)
-            print(f"[queue] added '{track.title}' to the server line")
-            
-        else:
-            # if the speakers are silent, just play it right away
+        # if nothing's playing
+        if not player.playing:
             await player.play(track)
-
-            embed = discord.Embed(
-                title="now playing!",
-                description=f"**[{track.title}]({track.uri})**",
-                color=0xffcc80
-            )
-            if track.author:
-                embed.add_field(name="artist/creator", value=f"`{track.author}`", inline=True)
-            if track.length:
-                minutes = int((track.length // 1000) // 60)
-                seconds = int((track.length // 1000) % 60)
-                embed.add_field(name="duration", value=f"`{minutes}:{seconds:02d}`", inline=True)
-                
-            embed.set_footer(text=f"requested by {interaction.user.name} :3")
+            embed = generate_play_embed("now playing!", track, interaction.user.name)
             await interaction.followup.send(embed=embed)
-            print(f"[music - play] playing '{track.title} - {track.author}'")
+            return
+
+        # if a song's playing
+        if timing == "replace":
+            # overwrite the active speaker track instantly
+            await player.play(track)
+            embed = generate_play_embed("now playing! (replaced)", track, interaction.user.name)
+            await interaction.followup.send(embed=embed)
+            print(f"[music] replaced active track with '{track.title}'")
+
+        elif timing == "next":
+            # put it at position 0 in the queue array layer so it fires next
+            player.queue.put_at(0, track)
+            embed = generate_play_embed("added to front of queue!", track, interaction.user.name)
+            embed.add_field(name="position", value="`#1 in queue`", inline=True)
+            await interaction.followup.send(embed=embed)
+            print(f"[music] forced '{track.title}' to play next")
+
+        else: # "queue" (default action profile)
+            # standard placement at the end of the line array
+            player.queue.put(track)
+            embed = generate_play_embed("added to queue!", track, interaction.user.name)
+            embed.add_field(name="position", value=f"`#{len(player.queue)}`", inline=True)
+            await interaction.followup.send(embed=embed)
+            print(f"[music] appended '{track.title}' to back of queue")
 
     except Exception as e:
         print(f"[!] my speakers nooo- | {e}")
@@ -518,16 +533,8 @@ async def skip(interaction: discord.Interaction):
         print(f"[!] failed to skip: {e}")
         await interaction.response.send_message(f"uhh my controls jammed: `{e}`", ephemeral=True)
 
-@bot.tree.command(name="previous", description="go back to the last song!")
-async def previous(interaction: discord.Interaction):
-    if not misoyan_settings["all_features"]:
-        await interaction.response.send_message("my speakers are off rn (disabled)", ephemeral=True)
-        return
-
-    if interaction.user.id in misoyan_settings["blacklist"]:
-        await interaction.response.send_message("hey, don't touch that.", ephemeral=True)
-        return
-
+@bot.tree.command(name="previous", description="play the previous song if you like it :3")
+async def previous_track(interaction: discord.Interaction):
     try:
         node = wavelink.Pool.get_node()
         player: wavelink.Player = node.get_player(interaction.guild.id)
@@ -536,23 +543,40 @@ async def previous(interaction: discord.Interaction):
             await interaction.response.send_message("i'm not in a vc!", ephemeral=True)
             return
 
-        # check if there's even a past track recorded in the memory bank
-        if not player.queue.history:
-            await interaction.response.send_message("hmph, there isn't even any previous songs played.", ephemeral=True)
+        # history needs to have at least 2 tracks if something is currently playing,
+        # because index -1 is the current/just-finished track. 
+        if len(player.queue.history) < 2:
+            await interaction.response.send_message("hmph, you think i can play nothing?", ephemeral=True)
             return
 
-        # grab the absolute last track that played
-        # history keeps growing, so the last item is at index -1
-        last_track = player.queue.history[-1]
+        # pop the current song out of history so we can access the real historical track behind it
+        player.queue.history.pop() # removes the current track record
+        real_previous = player.queue.history.pop() # grabs the actual last song
         
-        # if a song is playing, clear it out so we can backtrack immediately
-        await player.play(last_track)
-        await interaction.response.send_message(f"rewinding back to: **{last_track.title}**")
-        print(f"[music] rewound to previous track via {interaction.user.name}")
+        await player.play(real_previous)
+        await interaction.response.send_message(f"rewinding back to: **{real_previous.title}**")
+        print(f"[music] backtracked to '{real_previous.title}' via {interaction.user.name}")
 
     except Exception as e:
-        print(f"[!] failed to backtrack: {e}")
         await interaction.response.send_message(f"couldn't go back: `{e}`", ephemeral=True)
+
+@bot.tree.command(name="replay", description="restart the current song from the beginning")
+async def replay_track(interaction: discord.Interaction):
+    try:
+        node = wavelink.Pool.get_node()
+        player: wavelink.Player = node.get_player(interaction.guild.id)
+
+        if not player or not player.connected or not player.current:
+            await interaction.response.send_message("tsk, seriously?")
+            return
+
+        # seek back to the absolute beginning (0 milliseconds)
+        await player.seek(0)
+        await interaction.response.send_message(f"replaying **{player.current.title}**")
+        print(f"[music] replayed current track via {interaction.user.name}")
+
+    except Exception as e:
+        await interaction.response.send_message(f"couldn't replay: `{e}`", ephemeral=True)
 
 @bot.tree.command(name="queue", description="see what songs are lined up next")
 async def view_queue(interaction: discord.Interaction):
