@@ -389,15 +389,41 @@ async def leave(interaction: discord.Interaction):
         await interaction.response.send_message("i think my speakers malfunctioned", ephemeral=True)
 
 # quick helper function so you don't copy-paste the embed block 3 times (for /play command)
-def generate_play_embed(title_text, track, user_name):
-    embed = discord.Embed(title=title_text, description=f"**[{track.title}]({track.uri})**", color=0xffcc80)
-    if track.author:
-        embed.add_field(name="artist/creator", value=f"`{track.author}`", inline=True)
+def generate_play_embed(status_title, track, interaction_user, queue_position=None):
+    # converting your exact hex code string to a discord color object
+    misoyan_hair_color = discord.Color.from_str("#e6ba81")
+
+    embed = discord.Embed(
+        title=status_title,
+        description=f"**[{track.title}]({track.uri})**",
+        color=misoyan_hair_color
+    )
+    
+    # author layout: requested by username + user avatar icon url
+    embed.set_author(
+        name=f"requested by @{interaction_user.name}", 
+        icon_url=interaction_user.display_avatar.url
+    )
+    
+    # thumbnail layout: song cover art
+    if hasattr(track, 'artwork') and track.artwork:
+        embed.set_thumbnail(url=track.artwork)
+    else:
+        embed.set_thumbnail(url="https://cdn.discordapp.com/avatars/891917254789320714/a441e4c8bab982ddb1345a18636894c7.png?size=4096") # my profile's avatar
+
+    # column grid elements
+    embed.add_field(name="artist", value=f"**{track.author or 'unknown'}**", inline=True)
+    
     if track.length:
         minutes = int((track.length // 1000) // 60)
         seconds = int((track.length // 1000) % 60)
-        embed.add_field(name="duration", value=f"`{minutes}:{seconds:02d}`", inline=True)
-    embed.set_footer(text=f"requested by {user_name} :3")
+        embed.add_field(name="duration", value=f"**{minutes}:{seconds:02d}**", inline=True)
+    else:
+        embed.add_field(name="duration", value="**--:--**", inline=True)
+        
+    if queue_position:
+        embed.add_field(name="position", value=f"**{queue_position}**", inline=True)
+
     return embed
 
 @bot.tree.command(name="play", description="use my speakers :3")
@@ -468,7 +494,7 @@ async def play(interaction: discord.Interaction, search: str, timing: str = "que
         # if nothing's playing
         if not player.playing:
             await player.play(track)
-            embed = generate_play_embed("now playing!", track, interaction.user.name)
+            embed = generate_play_embed("now playing!", track, interaction.user)
             await interaction.followup.send(embed=embed)
             return
 
@@ -476,23 +502,22 @@ async def play(interaction: discord.Interaction, search: str, timing: str = "que
         if timing == "replace":
             # overwrite the active speaker track instantly
             await player.play(track)
-            embed = generate_play_embed("now playing! (replaced)", track, interaction.user.name)
+            embed = generate_play_embed("now playing! (replaced)", track, interaction.user)
             await interaction.followup.send(embed=embed)
             print(f"[music] replaced active track with '{track.title}'")
 
         elif timing == "next":
             # put it at position 0 in the queue array layer so it fires next
             player.queue.put_at(0, track)
-            embed = generate_play_embed("added to front of queue!", track, interaction.user.name)
-            embed.add_field(name="position", value="`#1 in queue`", inline=True)
+            embed = generate_play_embed("added to front of queue!", track, interaction.user, "playing next! (#1)")
             await interaction.followup.send(embed=embed)
             print(f"[music] forced '{track.title}' to play next")
 
         else: # "queue" (default action profile)
             # standard placement at the end of the line array
             player.queue.put(track)
-            embed = generate_play_embed("added to queue!", track, interaction.user.name)
-            embed.add_field(name="position", value=f"`#{len(player.queue)}`", inline=True)
+            pos_text = f"#{len(player.queue)}"
+            embed = generate_play_embed("added to queue!", track, interaction.user, pos_text)
             await interaction.followup.send(embed=embed)
             print(f"[music] appended '{track.title}' to back of queue")
 
