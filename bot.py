@@ -389,8 +389,8 @@ async def leave(interaction: discord.Interaction):
     except Exception:
         await interaction.response.send_message("i think my speakers malfunctioned", ephemeral=True)
 
-class NowPlayingView:
-    def __init__(self, track, user):
+class NowPlayingView(ui.LayoutView):
+    def __init__(self, track, user, extra: str = ""):
         super().__init__()
 
         user_handle = f"@{user.name}"
@@ -410,8 +410,8 @@ class NowPlayingView:
             duration = "--:--"
 
         # 3. make the components
-        now_playing = ui.TextDisplay(f"-# now playing! - requested by {user_handle} :3")
-        cover_art = ui.MediaGallery(discord.MediaGalleryItem(cover_art_url))
+        now_playing = ui.TextDisplay(f"-# now playing!{extra} - requested by {user_handle} :3")
+        cover_art = ui.MediaGallery(discord.MediaGalleryItem(track_cover_url))
 
         # 4. artist and bottom text
         artist_name = track.author or "unknown"
@@ -426,6 +426,40 @@ class NowPlayingView:
         )
 
         self.add_item(container)
+
+class QueuedView(ui.LayoutView):
+    def __init__(self, track, user, queue_message, position: int = None):
+        super().__init__()
+
+        user_handle = f"@{user.name}"
+
+        # 1. get the track cover
+        if hasattr(track, 'artwork') and track.artwork:
+            track_cover_url = track.artwork
+        else:
+            track_cover_url = "https://cdn.discordapp.com/attachments/1454299112181600299/1520232653503201331/-sIJRmHN.jpg?ex=6a40727d&is=6a3f20fd&hm=56a9548e90f38e4f26adc02dfddd5d28542fd0a928eb8578ecc564aac0976882&" # a cool sky picture placeholder
+
+        # 2. get the track length
+        if track.length:
+            minutes = int((track.length // 1000) // 60)
+            seconds = int((track.length // 1000) % 60)
+            duration = f"{minutes}:{seconds:02d}"
+        else:
+            duration = "--:--"
+
+        # 3. artist and bottom text and queue position
+        index = ""
+        if position:
+            index = position
+        artist_name = track.author or "unknown"
+        text_metadata = f"-# requested by {user_handle} :3\n{queue_message}\n# {track.title}\nArtist: **{artist_name}**\nDuration: {duration}\nPosition: #{index}"
+
+        # 4. make the view and container
+        section = ui.Section(ui.TextDisplay(text_metadata), accessory=ui.Thumbnail(track_cover_url))
+        container = ui.Container(section, accent_color=discord.Color.from_str('#5C9F05'))
+
+        self.add_item(container)
+    
 
 @bot.tree.command(name="play", description="use my speakers :3")
 @app_commands.describe(
@@ -495,31 +529,31 @@ async def play(interaction: discord.Interaction, search: str, timing: str = "que
         # if nothing's playing
         if not player.playing:
             await player.play(track)
-            view = NowPlayingView(track, interaction.user) 
-            await interaction.followup.send(view=view)
+            embed = NowPlayingView(track, interaction.user) 
+            await interaction.followup.send(view=embed)
             return
 
         # if a song's playing
         if timing == "replace":
             # overwrite the active speaker track instantly
             await player.play(track)
-            embed = generate_play_embed("now playing! (replaced)", track, interaction.user)
-            await interaction.followup.send(embed=embed)
+            embed = NowPlayingView(track, interaction.user, " (replaced)")
+            await interaction.followup.send(view=embed)
             print(f"[music] replaced active track with '{track.title}'")
 
         elif timing == "next":
             # put it at position 0 in the queue array layer so it fires next
             player.queue.put_at(0, track)
-            embed = generate_play_embed("added to front of queue!", track, interaction.user, "playing next! (#1)")
-            await interaction.followup.send(embed=embed)
+            embed = QueuedView(track, interaction.user, "playing next!")
+            await interaction.followup.send(view=embed)
             print(f"[music] forced '{track.title}' to play next")
 
         else: # "queue" (default action profile)
             # standard placement at the end of the line array
             player.queue.put(track)
-            pos_text = f"#{len(player.queue)}"
-            embed = generate_play_embed("added to queue!", track, interaction.user, pos_text)
-            await interaction.followup.send(embed=embed)
+            pos_number = len(player.queue)
+            embed = QueuedView(track, interaction.user, "added to queue!", pos_number)
+            await interaction.followup.send(view=embed)
             print(f"[music] appended '{track.title}' to back of queue")
 
     except Exception as e:
