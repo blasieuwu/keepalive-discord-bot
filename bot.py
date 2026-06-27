@@ -833,41 +833,47 @@ async def now_playing(interaction: discord.Interaction, title: str = "goofy song
     user_handle = f"@{interaction.user.name}"
     user_avatar = interaction.user.display_avatar.url
 
-    now_playing_embed = {
-        "flags": 32768,
-        "components": [
-            {
-                "type": 17,
-                "accent_color": 14721897,
-                "components": [
-                    {
-                        "type": 10,
-                        "content": f"-# now playing! - requested by {user_handle} :3"
-                    },
-                    {
-                        "type": 12,
-                        "items": [
-                            {
-                                "media": {
-                                    "url": user_avatar
-                                },
-                                "spoiler": False
-                            }
-                        ]
-                    },
-                    {
-                        "type": 10,
-                        "content": f"## {title}\nArtist: **{artist}**\nDuration: {duration}"
-                    }
-                ]
-            }
-        ]
+    # 1. create the modern message flags natively
+    custom_flags = discord.MessageFlags()
+    custom_flags.components_v2 = True  # explicitly triggers the v2 engine natively
+
+    # 2. construct the layouts using your precise schema structure
+    components_v2_layout = [
+        {
+            "type": 17,
+            "accent_color": 14721897,
+            "components": [
+                {
+                    "type": 10,
+                    "content": f"-# now playing! - requested by {user_handle} :3"
+                },
+                {
+                    "type": 12,
+                    "items": [
+                        {
+                            "media": {
+                                "url": user_avatar
+                            },
+                            "spoiler": False
+                        }
+                    ]
+                },
+                {
+                    "type": 10,
+                    "content": f"## {title}\nArtist: **{artist}**\nDuration: {duration}"
+                }
+            ]
+        }
+    ]
+
+    # 3. safely bundle the properties into a parameter unpacking payload
+    now_playing_payload = {
+        "flags": custom_flags,
+        "components": components_v2_layout
     }
 
-    await interaction.response._respond(
-        type=discord.InteractionResponseType.channel_message_with_source.value,
-        data=now_playing_embed
-    )
+    # 4. unpack and fire straight down into the api channel
+    await interaction.response.send_message(**now_playing_payload)
 
 # "just make sure we're not getting silenced"
 # SONNNNNNNNNNNNNNNNNNNNNN😭😭😭 -kam
