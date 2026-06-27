@@ -864,7 +864,10 @@ async def now_playing(interaction: discord.Interaction, title: str = "goofy song
         ]
     }
 
-    await interaction.response.send_message(components=now_playing_embed)
+    await interaction.response._respond(
+        type=discord.InteractionResponseType.channel_message_with_source.value,
+        data=now_playing_embed
+    )
 
 # "just make sure we're not getting silenced"
 # SONNNNNNNNNNNNNNNNNNNNNN😭😭😭 -kam
