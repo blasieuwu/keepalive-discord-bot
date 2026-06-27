@@ -840,8 +840,8 @@ class NowPlayingView(discord.ui.LayoutView):
         header_text = discord.ui.TextDisplay(content=f"-# now playing! - requested by {user_handle} :3")
         metadata_text = discord.ui.TextDisplay(content=f"## {title}\nArtist: **{artist}**\nDuration: {duration}")
         
-        # 3. build the media item explicitly using UnfurledMediaItem
-        media_item = discord.UnfurledMediaItem(user_avatar)
+        # 3. initialize MediaGalleryItem directly with the image url string
+        media_item = discord.ui.MediaGalleryItem(url=user_avatar)
         
         # 4. assign it to the media gallery framework using append_item
         media_art = discord.ui.MediaGallery()
