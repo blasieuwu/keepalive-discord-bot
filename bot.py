@@ -389,43 +389,43 @@ async def leave(interaction: discord.Interaction):
     except Exception:
         await interaction.response.send_message("i think my speakers malfunctioned", ephemeral=True)
 
-# quick helper function so you don't copy-paste the embed block 3 times (for /play command)
-def generate_play_embed(status_title, track, interaction_user, queue_position=None):
-    # converting your exact hex code string to a discord color object
-    misoyan_hair_color = discord.Color.from_str("#e6ba81")
+class NowPlayingView:
+    def __init__(self, track, user):
+        super().__init__()
 
-    embed = discord.Embed(
-        title=status_title,
-        description=f"**[{track.title}]({track.uri})**",
-        color=misoyan_hair_color
-    )
-    
-    # author layout: requested by username + user avatar icon url
-    embed.set_author(
-        name=f"requested by @{interaction_user.name}", 
-        icon_url=interaction_user.display_avatar.url
-    )
-    
-    # thumbnail layout: song cover art
-    if hasattr(track, 'artwork') and track.artwork:
-        embed.set_thumbnail(url=track.artwork)
-    else:
-        embed.set_thumbnail(url="https://cdn.discordapp.com/avatars/891917254789320714/a441e4c8bab982ddb1345a18636894c7.png?size=4096") # my profile's avatar
+        user_handle = f"@{user.name}"
 
-    # column grid elements
-    embed.add_field(name="artist", value=f"**{track.author or 'unknown'}**", inline=True)
-    
-    if track.length:
-        minutes = int((track.length // 1000) // 60)
-        seconds = int((track.length // 1000) % 60)
-        embed.add_field(name="duration", value=f"**{minutes}:{seconds:02d}**", inline=True)
-    else:
-        embed.add_field(name="duration", value="**--:--**", inline=True)
-        
-    if queue_position:
-        embed.add_field(name="position", value=f"**{queue_position}**", inline=True)
+        # 1. get the track cover
+        if hasattr(track, 'artwork') and track.artwork:
+            track_cover_url = track.artwork
+        else:
+            track_cover_url = "https://cdn.discordapp.com/attachments/1454299112181600299/1520232653503201331/-sIJRmHN.jpg?ex=6a40727d&is=6a3f20fd&hm=56a9548e90f38e4f26adc02dfddd5d28542fd0a928eb8578ecc564aac0976882&" # a cool sky picture placeholder
 
-    return embed
+        # 2. get the track length
+        if track.length:
+            minutes = int((track.length // 1000) // 60)
+            seconds = int((track.length // 1000) % 60)
+            duration = f"{minutes}:{seconds:02d}"
+        else:
+            duration = "--:--"
+
+        # 3. make the components
+        now_playing = ui.TextDisplay(f"-# now playing! - requested by {user_handle} :3")
+        cover_art = ui.MediaGallery(discord.MediaGalleryItem(cover_art_url))
+
+        # 4. artist and bottom text
+        artist_name = track.author or "unknown"
+        track_metadata = f"## {track.title}\nArtist: **{artist_name}**\nDuration: {duration}"
+
+        # 5. make the actual container/embed
+        container = ui.Container(
+            now_playing,
+            cover_art,
+            track_metadata,
+            accent_color=discord.Color.from_str("#e6ba81")
+        )
+
+        self.add_item(container)
 
 @bot.tree.command(name="play", description="use my speakers :3")
 @app_commands.describe(
@@ -495,8 +495,8 @@ async def play(interaction: discord.Interaction, search: str, timing: str = "que
         # if nothing's playing
         if not player.playing:
             await player.play(track)
-            embed = generate_play_embed("now playing!", track, interaction.user)
-            await interaction.followup.send(embed=embed)
+            view = NowPlayingView(track, interaction.user) 
+            await interaction.followup.send(view=view)
             return
 
         # if a song's playing
@@ -826,26 +826,6 @@ async def create_webhook(interaction: discord.Interaction, message: str = "a web
     else:
         await interaction.response.send_message("hmph, you can't do that (text channels only)", ephemeral = True)
 
-class NowPlayingView(ui.LayoutView):
-    def __init__(self, title: str, artist: str, duration: str, user_avatar: str, user_handle: str):
-        super().__init__()
-        
-        # build the subcomponents using the ui namespace directly
-        header_text = ui.TextDisplay(f"-# now playing! - requested by {user_handle} :3")
-        media_art = ui.MediaGallery(discord.MediaGalleryItem(user_avatar))
-        metadata_text = ui.TextDisplay(f"## {title}\nArtist: **{artist}**\nDuration: {duration}")
-        
-        # pass them into the container constructor signature just like the screenshot
-        container = ui.Container(
-            header_text,
-            media_art,
-            metadata_text,
-            accent_color=discord.Color.from_str("#E0A369")
-        )
-        
-        # attach the complete container layout frame
-        self.add_item(container)
-
 @bot.tree.command(name="now-playing", description="[blasie-only] view the current song :p")
 @app_commands.describe(title="song title", artist="artist name", duration="track duration")
 async def now_playing(interaction: discord.Interaction, title: str = "goofy song :P", artist: str = "nobody", duration: str = "-:--"):
@@ -853,9 +833,6 @@ async def now_playing(interaction: discord.Interaction, title: str = "goofy song
     user_avatar = str(interaction.user.display_avatar.url)
 
     v2_view = NowPlayingView(title, artist, duration, user_avatar, user_handle)
-
-    flags = discord.MessageFlags()
-    flags.components_v2 = True
 
     await interaction.response.send_message(view=v2_view)
 
