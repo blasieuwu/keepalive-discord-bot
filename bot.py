@@ -826,30 +826,32 @@ async def create_webhook(interaction: discord.Interaction, message: str = "a web
     else:
         await interaction.response.send_message("hmph, you can't do that (text channels only)", ephemeral = True)
 
-# 1. inherit from LayoutView (the dedicated V2 layout manager)
+import discord
+from discord import app_commands
+
 class NowPlayingView(discord.ui.LayoutView):
     def __init__(self, title: str, artist: str, duration: str, user_avatar: str, user_handle: str):
         super().__init__()
         
-        # type 17 is Container in the dpy components map
-        # accent_color uses discord.Color natively
+        # 1. create the card container component
         container = discord.ui.Container(accent_color=discord.Color.from_str("#E0A369"))
         
-        # create text displays and media natively
+        # 2. setup text displays
         header_text = discord.ui.TextDisplay(content=f"-# now playing! - requested by {user_handle} :3")
-        
-        # media gallery holds your items (like the album art)
-        media_art = discord.ui.MediaGallery()
-        media_art.add_item(url=user_avatar)
-        
         metadata_text = discord.ui.TextDisplay(content=f"## {title}\nArtist: **{artist}**\nDuration: {duration}")
         
-        # pack the subcomponents inside the main container block
+        # 3. build the media item explicitly using UnfurledMediaItem
+        media_item = discord.UnfurledMediaItem(user_avatar)
+        
+        # 4. assign it to the media gallery framework using append_item
+        media_art = discord.ui.MediaGallery()
+        media_art.append_item(media_item)
+        
+        # 5. pack everything together neatly inside the hierarchy
         container.add_item(header_text)
         container.add_item(media_art)
         container.add_item(metadata_text)
         
-        # add the full container block into the main layout view frame
         self.add_item(container)
 
 @bot.tree.command(name="now-playing", description="[blasie-only] view the current song :p")
@@ -858,14 +860,11 @@ async def now_playing(interaction: discord.Interaction, title: str = "goofy song
     user_handle = f"@{interaction.user.name}"
     user_avatar = str(interaction.user.display_avatar.url)
 
-    # instantiate the view layout
     v2_view = NowPlayingView(title, artist, duration, user_avatar, user_handle)
 
-    # tell the client engine to render v2 formatting rules
     flags = discord.MessageFlags()
     flags.components_v2 = True
 
-    # pass the view into the keyword parameter natively!
     await interaction.response.send_message(view=v2_view, flags=flags)
 
 # "just make sure we're not getting silenced"
