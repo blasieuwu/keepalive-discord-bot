@@ -2,6 +2,7 @@ import asyncio
 import os
 import random  # keeps random.choice from crashing her
 import threading  # handles the background web server thread
+import aiohttp # for webhook avatar
 from http.server import SimpleHTTPRequestHandler, HTTPServer  # basic server classes
 import discord
 from discord import app_commands
@@ -751,7 +752,7 @@ async def systemsay(interaction: discord.Interaction, message: str):
         await interaction.response.send_message("you're not blasie or an admin here, get away", ephemeral=True)
         return
         
-    await interaction.response.send_message("sending message...", ephemeral=True)
+    await interaction.response.send_message("im in your walls :)", ephemeral=True)
     try:
         await interaction.channel.send(message)
     except Exception as e:
@@ -792,6 +793,38 @@ async def restrict_user(interaction: discord.Interaction, target: discord.User):
     else:
         misoyan_settings["blacklist"].add(target.id)
         await interaction.response.send_message(f"blacklisted. **{target.name}** has been blocked by misoyan.", ephemeral=True)
+
+@bot.tree.command(name="webhook", description="[blasie-only] create a new webhook :o")
+@app_commands.describe(message="atleast give it a name :P")
+async def create_webhook(interaction: discord.Interaction, message: str = "a webhook - misoyan"):
+    # check if it's actually ran in a regular text channel
+    if isinstance(interaction.channel, discord.TextChannel):
+        try:
+            webhook_avatar_url = "https://cdn.discordapp.com/attachments/1454299112181600299/1520232653503201331/-sIJRmHN.jpg?ex=6a40727d&is=6a3f20fd&hm=56a9548e90f38e4f26adc02dfddd5d28542fd0a928eb8578ecc564aac0976882&"
+            avatar_image = None
+            
+            # get the image
+            async with aiohttp.ClientSession() as session:
+                async with session.get(webhook_avatar_url) as response:
+                    if response.status == 200:
+                        avatar_image = await response.read()
+
+            
+            # lets create the webhook
+            webhook = await interaction.channel.create_webhook(
+                name = message,
+                reason = "created by blasie using misoyan :o",
+                avatar = avatar_image
+            )
+
+            await interaction.response.send_message(f"done! your webhook url is: ||{webhook.url}|| | name: {webhook.name}", ephemeral = True)
+
+        except discord.Forbidden:
+            await interaction.response.send_message("i don't have the 'manage webhooks' permission :p", ephemeral = True)
+        except discord.HTTPException:
+            await interaction.response.send_message("so it may have failed... ehe :)", ephemeral = True)
+    else:
+        await interaction.response.send_message("hmph, you can't do that (text channels only)", ephemeral = True)
 
 # "just make sure we're not getting silenced"
 # SONNNNNNNNNNNNNNNNNNNNNN😭😭😭 -kam
