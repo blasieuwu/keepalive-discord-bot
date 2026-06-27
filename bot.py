@@ -826,36 +826,47 @@ async def create_webhook(interaction: discord.Interaction, message: str = "a web
     else:
         await interaction.response.send_message("hmph, you can't do that (text channels only)", ephemeral = True)
 
-# 1. build the components v2 layout using discord.ui.Card
-class NowPlayingCard(discord.ui.Card):
+# 1. inherit from LayoutView (the dedicated V2 layout manager)
+class NowPlayingView(discord.ui.LayoutView):
     def __init__(self, title: str, artist: str, duration: str, user_avatar: str, user_handle: str):
-        # hex #E0A369 is 14721897 in decimal
-        super().__init__(accent_color=discord.Color.from_str("#E0A369"))
+        super().__init__()
         
-        # natively add markdown text blocks as child components
-        self.add_text(f"-# now playing! - requested by {user_handle} :3")
+        # type 17 is Container in the dpy components map
+        # accent_color uses discord.Color natively
+        container = discord.ui.Container(accent_color=discord.Color.from_str("#E0A369"))
         
-        # add your media/album art block natively inside the stream
-        self.add_media(url=user_avatar)
+        # create text displays and media natively
+        header_text = discord.ui.TextDisplay(content=f"-# now playing! - requested by {user_handle} :3")
         
-        # add the main track metadata details
-        self.add_text(f"## {title}\nArtist: **{artist}**\nDuration: {duration}")
+        # media gallery holds your items (like the album art)
+        media_art = discord.ui.MediaGallery()
+        media_art.add_item(url=user_avatar)
+        
+        metadata_text = discord.ui.TextDisplay(content=f"## {title}\nArtist: **{artist}**\nDuration: {duration}")
+        
+        # pack the subcomponents inside the main container block
+        container.add_item(header_text)
+        container.add_item(media_art)
+        container.add_item(metadata_text)
+        
+        # add the full container block into the main layout view frame
+        self.add_item(container)
 
-# 2. execute and send via a slash command or regular prefix command
 @bot.tree.command(name="now-playing", description="[blasie-only] view the current song :p")
+@app_commands.describe(title="song title", artist="artist name", duration="track duration")
 async def now_playing(interaction: discord.Interaction, title: str = "goofy song :P", artist: str = "nobody", duration: str = "-:--"):
     user_handle = f"@{interaction.user.name}"
     user_avatar = str(interaction.user.display_avatar.url)
 
-    # create the card instance passing your variables
-    player_card = NowPlayingCard(title, artist, duration, user_avatar, user_handle)
+    # instantiate the view layout
+    v2_view = NowPlayingView(title, artist, duration, user_avatar, user_handle)
 
-    # setup the native v2 engine flag
+    # tell the client engine to render v2 formatting rules
     flags = discord.MessageFlags()
     flags.components_v2 = True
 
-    # pass the card class directly into the standard components list!
-    await interaction.response.send_message(components=[player_card], flags=flags)
+    # pass the view into the keyword parameter natively!
+    await interaction.response.send_message(view=v2_view, flags=flags)
 
 # "just make sure we're not getting silenced"
 # SONNNNNNNNNNNNNNNNNNNNNN😭😭😭 -kam
