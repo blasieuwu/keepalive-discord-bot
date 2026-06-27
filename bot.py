@@ -857,7 +857,7 @@ async def now_playing(interaction: discord.Interaction, title: str = "goofy song
     flags = discord.MessageFlags()
     flags.components_v2 = True
 
-    await interaction.response.send_message(view=v2_view, flags=flags)
+    await interaction.response.send_message(view=v2_view)
 
 # "just make sure we're not getting silenced"
 # SONNNNNNNNNNNNNNNNNNNNNN😭😭😭 -kam
