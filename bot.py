@@ -826,54 +826,36 @@ async def create_webhook(interaction: discord.Interaction, message: str = "a web
     else:
         await interaction.response.send_message("hmph, you can't do that (text channels only)", ephemeral = True)
 
-@bot.tree.command(name="now-playing", description="[blasie-only] view the current song :p (wip, in testing)")
-@app_commands.describe(title="song title", artist="artist name", duration="track duration")
+# 1. build the components v2 layout using discord.ui.Card
+class NowPlayingCard(discord.ui.Card):
+    def __init__(self, title: str, artist: str, duration: str, user_avatar: str, user_handle: str):
+        # hex #E0A369 is 14721897 in decimal
+        super().__init__(accent_color=discord.Color.from_str("#E0A369"))
+        
+        # natively add markdown text blocks as child components
+        self.add_text(f"-# now playing! - requested by {user_handle} :3")
+        
+        # add your media/album art block natively inside the stream
+        self.add_media(url=user_avatar)
+        
+        # add the main track metadata details
+        self.add_text(f"## {title}\nArtist: **{artist}**\nDuration: {duration}")
+
+# 2. execute and send via a slash command or regular prefix command
+@bot.tree.command(name="now-playing", description="[blasie-only] view the current song :p")
 async def now_playing(interaction: discord.Interaction, title: str = "goofy song :P", artist: str = "nobody", duration: str = "-:--"):
-    # get their handle and avatar (as a placeholder image)
     user_handle = f"@{interaction.user.name}"
-    user_avatar = interaction.user.display_avatar.url
+    user_avatar = str(interaction.user.display_avatar.url)
 
-    # 1. create the modern message flags natively
-    custom_flags = discord.MessageFlags()
-    custom_flags.components_v2 = True  # explicitly triggers the v2 engine natively
+    # create the card instance passing your variables
+    player_card = NowPlayingCard(title, artist, duration, user_avatar, user_handle)
 
-    # 2. construct the layouts using your precise schema structure
-    components_v2_layout = [
-        {
-            "type": 17,
-            "accent_color": 14721897,
-            "components": [
-                {
-                    "type": 10,
-                    "content": f"-# now playing! - requested by {user_handle} :3"
-                },
-                {
-                    "type": 12,
-                    "items": [
-                        {
-                            "media": {
-                                "url": user_avatar
-                            },
-                            "spoiler": False
-                        }
-                    ]
-                },
-                {
-                    "type": 10,
-                    "content": f"## {title}\nArtist: **{artist}**\nDuration: {duration}"
-                }
-            ]
-        }
-    ]
+    # setup the native v2 engine flag
+    flags = discord.MessageFlags()
+    flags.components_v2 = True
 
-    # 3. safely bundle the properties into a parameter unpacking payload
-    now_playing_payload = {
-        "flags": custom_flags,
-        "components": components_v2_layout
-    }
-
-    # 4. unpack and fire straight down into the api channel
-    await interaction.response.send_message(**now_playing_payload)
+    # pass the card class directly into the standard components list!
+    await interaction.response.send_message(components=[player_card], flags=flags)
 
 # "just make sure we're not getting silenced"
 # SONNNNNNNNNNNNNNNNNNNNNN😭😭😭 -kam
