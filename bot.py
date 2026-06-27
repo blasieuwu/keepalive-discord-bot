@@ -826,6 +826,46 @@ async def create_webhook(interaction: discord.Interaction, message: str = "a web
     else:
         await interaction.response.send_message("hmph, you can't do that (text channels only)", ephemeral = True)
 
+@bot.tree.command(name="now-playing", description="[blasie-only] view the current song :p (wip, in testing)")
+@app_commands.describe(title="song title", artist="artist name", duration="track duration")
+async def now_playing(interaction: discord.Interaction, title: str = "goofy song :P", artist: str = "nobody", duration: str = "-:--"):
+    # get their handle and avatar (as a placeholder image)
+    user_handle = f"@{interaction.user.name}"
+    user_avatar = interaction.user.display_avatar.url
+
+    now_playing_embed = {
+        "flags": 32768,
+        "components": [
+            {
+                "type": 17,
+                "accent_color": 14721897,
+                "components": [
+                    {
+                        "type": 10,
+                        "content": f"-# now playing! - requested by {user_handle} :3"
+                    },
+                    {
+                        "type": 12,
+                        "items": [
+                            {
+                                "media": {
+                                    "url": user_avatar
+                                },
+                                "spoiler": False
+                            }
+                        ]
+                    },
+                    {
+                        "type": 10,
+                        "content": f"## {title}\nArtist: **{artist}**\nDuration: {duration}"
+                    }
+                ]
+            }
+        ]
+    }
+
+    await interaction.response.send_message(components=now_playing_embed)
+
 # "just make sure we're not getting silenced"
 # SONNNNNNNNNNNNNNNNNNNNNN😭😭😭 -kam
 def run_dummy_server(port):
