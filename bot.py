@@ -860,15 +860,19 @@ async def create_webhook(interaction: discord.Interaction, message: str = "a web
     else:
         await interaction.response.send_message("hmph, you can't do that (text channels only)", ephemeral = True)
 
-@bot.tree.command(name="now-playing", description="[blasie-only] view the current song :p")
-@app_commands.describe(title="song title", artist="artist name", duration="track duration")
-async def now_playing(interaction: discord.Interaction, title: str = "goofy song :P", artist: str = "nobody", duration: str = "-:--"):
-    user_handle = f"@{interaction.user.name}"
-    user_avatar = str(interaction.user.display_avatar.url)
+@bot.tree.command(name="now-playing", description="view the current song :p")
+async def now_playing(interaction: discord.Interaction):
+    node = wavelink.Pool.get_node()
+    player: wavelink.Player = node.get_player(interaction.guild.id)
+    
+    if not player or not player.current:
+        await interaction.response.send_message("you seriously wanna see the void? nothing's playing...")
+        return
 
-    v2_view = NowPlayingView(title, artist, duration, user_avatar, user_handle)
-
-    await interaction.response.send_message(view=v2_view)
+    current_track = player.current
+    embed = NowPlayingView(current_track, interaction.user)
+    await interaction.response.send_message(view=embed)
+    
 
 # "just make sure we're not getting silenced"
 # SONNNNNNNNNNNNNNNNNNNNNN😭😭😭 -kam
