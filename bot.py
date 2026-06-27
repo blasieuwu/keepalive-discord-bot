@@ -5,7 +5,7 @@ import threading  # handles the background web server thread
 import aiohttp # for webhook avatar
 from http.server import SimpleHTTPRequestHandler, HTTPServer  # basic server classes
 import discord
-from discord import app_commands
+from discord import app_commands, ui
 from discord.ext import commands, tasks
 import wavelink  # this powers her speakers
 
@@ -826,32 +826,24 @@ async def create_webhook(interaction: discord.Interaction, message: str = "a web
     else:
         await interaction.response.send_message("hmph, you can't do that (text channels only)", ephemeral = True)
 
-import discord
-from discord import app_commands
-
-class NowPlayingView(discord.ui.LayoutView):
+class NowPlayingView(ui.LayoutView):
     def __init__(self, title: str, artist: str, duration: str, user_avatar: str, user_handle: str):
         super().__init__()
         
-        # 1. create the card container component
-        container = discord.ui.Container(accent_color=discord.Color.from_str("#E0A369"))
+        # build the subcomponents using the ui namespace directly
+        header_text = ui.TextDisplay(f"-# now playing! - requested by {user_handle} :3")
+        media_art = ui.MediaGallery([ui.MediaGalleryItem(url=user_avatar)])
+        metadata_text = ui.TextDisplay(f"## {title}\nArtist: **{artist}**\nDuration: {duration}")
         
-        # 2. setup text displays
-        header_text = discord.ui.TextDisplay(content=f"-# now playing! - requested by {user_handle} :3")
-        metadata_text = discord.ui.TextDisplay(content=f"## {title}\nArtist: **{artist}**\nDuration: {duration}")
+        # pass them into the container constructor signature just like the screenshot
+        container = ui.Container(
+            header_text,
+            media_art,
+            metadata_text,
+            accent_color=discord.Color.from_str("#E0A369")
+        )
         
-        # 3. initialize MediaGalleryItem directly with the image url string
-        media_item = discord.ui.MediaGalleryItem(url=user_avatar)
-        
-        # 4. assign it to the media gallery framework using append_item
-        media_art = discord.ui.MediaGallery()
-        media_art.append_item(media_item)
-        
-        # 5. pack everything together neatly inside the hierarchy
-        container.add_item(header_text)
-        container.add_item(media_art)
-        container.add_item(metadata_text)
-        
+        # attach the complete container layout frame
         self.add_item(container)
 
 @bot.tree.command(name="now-playing", description="[blasie-only] view the current song :p")
