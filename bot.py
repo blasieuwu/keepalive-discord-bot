@@ -199,7 +199,7 @@ async def connect_external_audio_node():
 
 @bot.event
 async def on_wavelink_node_ready(payload: wavelink.NodeReadyEventPayload):
-    print(f"\n[+] yay my mic works and im connected")
+    print("\n[+] yay my mic works and im connected")
 
 @tasks.loop(seconds=15)
 async def native_voice_sentinel_loop():
@@ -364,7 +364,7 @@ async def join(interaction: discord.Interaction):
             print(f"connecting to vc: {user_channel.name}")
             await user_channel.connect(cls=wavelink.Player)
             misoyan_settings["need_reconnection"] = False
-            await interaction.followup.send(f"im in your vc now :D")
+            await interaction.followup.send("im in your vc now :D")
         except Exception as e:
             print(f"shit i failed to join: {e}")
             await interaction.followup.send(f"so i may have failed to connect...: {e}", ephemeral=True)
