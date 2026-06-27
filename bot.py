@@ -415,7 +415,7 @@ class NowPlayingView(ui.LayoutView):
 
         # 4. artist and bottom text
         artist_name = track.author or "unknown"
-        track_metadata = f"## {track.title}\nArtist: **{artist_name}**\nDuration: {duration}"
+        track_metadata = ui.TextDisplay(f"## {track.title}\nArtist: **{artist_name}**\nDuration: {duration}")
 
         # 5. make the actual container/embed
         container = ui.Container(
@@ -450,9 +450,9 @@ class QueuedView(ui.LayoutView):
         # 3. artist and bottom text and queue position
         index = ""
         if position:
-            index = position
+            index = f"Position: #{position}"
         artist_name = track.author or "unknown"
-        text_metadata = f"-# requested by {user_handle} :3\n{queue_message}\n# {track.title}\nArtist: **{artist_name}**\nDuration: {duration}\nPosition: #{index}"
+        text_metadata = f"-# requested by {user_handle} :3\n{queue_message}\n# {track.title}\nArtist: **{artist_name}**\nDuration: {duration}\n{index}"
 
         # 4. make the view and container
         section = ui.Section(ui.TextDisplay(text_metadata), accessory=ui.Thumbnail(track_cover_url))
@@ -551,7 +551,7 @@ async def play(interaction: discord.Interaction, search: str, timing: str = "que
         else: # "queue" (default action profile)
             # standard placement at the end of the line array
             player.queue.put(track)
-            pos_number = len(player.queue)
+            pos_number = int(len(player.queue))
             embed = QueuedView(track, interaction.user, "added to queue!", pos_number)
             await interaction.followup.send(view=embed)
             print(f"[music] appended '{track.title}' to back of queue")
