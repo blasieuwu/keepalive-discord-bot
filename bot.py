@@ -832,7 +832,7 @@ class NowPlayingView(ui.LayoutView):
         
         # build the subcomponents using the ui namespace directly
         header_text = ui.TextDisplay(f"-# now playing! - requested by {user_handle} :3")
-        media_art = ui.MediaGallery([ui.MediaGalleryItem(url=user_avatar)])
+        media_art = ui.MediaGallery([discord.MediaGalleryItem(url=user_avatar)])
         metadata_text = ui.TextDisplay(f"## {title}\nArtist: **{artist}**\nDuration: {duration}")
         
         # pass them into the container constructor signature just like the screenshot
