@@ -638,78 +638,65 @@ async def replay_track(interaction: discord.Interaction):
     except Exception as e:
         await interaction.response.send_message(f"couldn't replay: `{e}`", ephemeral=True)
 
-@bot.tree.command(name="queue", description="see what songs are lined up next")
-async def view_queue(interaction: discord.Interaction):
-    try:
-        node = wavelink.Pool.get_node()
-        player: wavelink.Player = node.get_player(interaction.guild.id)
-
-        if not player or not player.connected:
-            await interaction.response.send_message("i'm not in a vc. you expect me to view 20 pieces of nothing?", ephemeral=True)
-            return
+class SongQueue(discord.ui.View):
+    def __init__(self, player, user: discord.User):
+        super().__init__(timeout=60.0)
+        self.player = player
+        self.user = user
         
-        # 1. initialize an empty list to hold your finished section blocks
+        # build the layout inside the initializer!
+        self.build_queue_layout()
+
+    def build_queue_layout(self):
         queue_sections = []
 
-        # 2. grab your current track to show at the top of the stack
-        if player.current:
-            current_track = player.current
-            # add a clean header section for the active track
-            # 2. get the track length
-            if current_track.length:
-                minutes = int((current_track.length // 1000) // 60)
-                seconds = int((current_track.length // 1000) % 60)
-                duration = f"{minutes}:{seconds:02d}"
-            else:
-                duration = "--:--"
-            
-            current_text = f"## {current_track.title}\nArtist: **{current_track.author}**\nDuration: {duration}\nPosition: playing!"
-            current_section = ui.Section(
-                ui.TextDisplay(current_text),
-                accessory=ui.Thumbnail(current_track.artwork or "user_pfp_url")
+        # 1. current track header block
+        if self.player.current:
+            current_track = self.player.current
+            current_text = f"**{current_track.title}**\nArtist: *{current_track.author or 'unknown'}*\nPosition: playing!"
+            queue_sections.append(
+                ui.Section(
+                    ui.TextDisplay(current_text),
+                    accessory=ui.Thumbnail(current_track.artwork or "fallback_url")
+                )
             )
-            queue_sections.append(current_section)
 
-        # 3. loop through the remaining items in the wavelink queue
-        for i, track in enumerate(player.queue):
-            # stop or paginate if the queue is massive (containers have item limits!)
-            if i >= 4: 
+        # 2. queue items loop block
+        for i, track in enumerate(self.player.queue):
+            if i >= 4:  # layout limit ceiling
                 break
-        
             position_text = "up next!" if i == 0 else f"#{i + 1}"
-            artist_name = track.author or "unknown"
+            track_text = f"**{track.title}**\nArtist: *{track.author or 'unknown'}*\nPosition: {position_text}"
             
-            # 2. get the track length
-            if track.length:
-                minutes = int((track.length // 1000) // 60)
-                seconds = int((track.length // 1000) % 60)
-                duration = f"{minutes}:{seconds:02d}"
-            else:
-                duration = "--:--"
-    
-            # format the text block for this specific index
-            track_text = f"**{track.title}**\nArtist: *{artist_name}*\nDuration: {duration}\nPosition: {position_text}"
-    
-            # 4. wrap EACH item in its own section block with its own thumbnail accessory
-            track_section = ui.Section(
-                ui.TextDisplay(track_text),
-                accessory=ui.Thumbnail(track.artwork or "fallback_box_url")
+            queue_sections.append(
+                ui.Section(
+                    ui.TextDisplay(track_text),
+                    accessory=ui.Thumbnail(track.artwork or "fallback_url")
+                )
             )
-    
-            # append the finished index section block to our master list
-            queue_sections.append(track_section)
 
-        # 5. unpack the finished sections list directly into the final container
-        # the asterisk (*) unpacks the list items as individual positional arguments!
-        container = ui.Container(
+        # 3. bind the container layout directly to the view instance!
+        # we attach it to self so the discord rendering engine detects it natively
+        self.container = ui.Container(
             *queue_sections,
             accent_color=discord.Color.from_str("#2C2C2C")
         )
+        
 
-        # 6. send the finished container framework over the interaction pipe
-        await interaction.response.send_message(view=container)
-    except Exception as e:
-        await interaction.response.send_message(f"so i kinda failed to show what's next: `{e}`", ephemeral=True)
+@bot.tree.command(name="queue", description="see what songs are lined up next")
+async def view_queue(interaction: discord.Interaction):
+    node = wavelink.Pool.get_node()
+    player: wavelink.Player = node.get_player(interaction.guild.id)
+
+    if not player or (not player.current and len(player.queue) == 0):
+        await interaction.response.send_message("the queue is completely empty!", ephemeral=True)
+        return
+
+    # initialize the proper View class instance
+    view_embed = SongQueue(player, interaction.user)
+    
+    # pass the view instance directly here!
+    await interaction.response.send_message(view=view_embed)
 
 @bot.tree.command(name="play-file", description="give me your audio file :)")
 @app_commands.describe(attachment="drag and drop or select an audio file (.mp3, .wav, .ogg, etc.) from your device")
