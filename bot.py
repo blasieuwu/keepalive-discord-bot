@@ -427,7 +427,7 @@ class NowPlayingView(ui.LayoutView):
 
         self.add_item(container)
 
-class QueuedView(ui.LayoutView):
+class QueuePopup(ui.LayoutView):
     def __init__(self, track, user, queue_message, position: int = None):
         super().__init__()
 
@@ -544,7 +544,7 @@ async def play(interaction: discord.Interaction, search: str, timing: str = "que
         elif timing == "next":
             # put it at position 0 in the queue array layer so it fires next
             player.queue.put_at(0, track)
-            embed = QueuedView(track, interaction.user, "playing next!")
+            embed = QueuePopup(track, interaction.user, "playing next!")
             await interaction.followup.send(view=embed)
             print(f"[music] forced '{track.title}' to play next")
 
@@ -552,7 +552,7 @@ async def play(interaction: discord.Interaction, search: str, timing: str = "que
             # standard placement at the end of the line array
             player.queue.put(track)
             pos_number = int(len(player.queue))
-            embed = QueuedView(track, interaction.user, "added to queue!", pos_number)
+            embed = QueuePopup(track, interaction.user, "added to queue!", pos_number)
             await interaction.followup.send(view=embed)
             print(f"[music] appended '{track.title}' to back of queue")
 
@@ -645,32 +645,73 @@ async def view_queue(interaction: discord.Interaction):
         player: wavelink.Player = node.get_player(interaction.guild.id)
 
         if not player or not player.connected:
-            await interaction.response.send_message("i'm not in a vc, no queue here!", ephemeral=True)
+            await interaction.response.send_message("i'm not in a vc. you expect me to view 20 pieces of nothing?", ephemeral=True)
             return
 
         embed = discord.Embed(title="misoyan's waiting line", color=0xffcc80)
         
-        # display current song
+        # 1. initialize an empty list to hold your finished section blocks
+        queue_sections = []
+
+        # 2. grab your current track to show at the top of the stack
         if player.current:
-            embed.description = f"**now playing:** [{player.current.title}]({player.current.uri})\n\n__up next:__"
-        else:
-            embed.description = "nothing is playing right now.\n\n__up next:__"
-
-        # parse the next 5 upcoming tracks cleanly
-        if player.queue.is_empty:
-            embed.description += "\nqueue is completely empty. add some tracks! :3"
-        else:
-            # slice the queue to just show the top items so the embed doesn't smash the limit size
-            for index, upcoming_track in enumerate(list(player.queue)[:5], start=1):
-                embed.description += f"\n`{index}.` [{upcoming_track.title}]({upcoming_track.uri})"
+            current_track = player.current
+            # add a clean header section for the active track
+            # 2. get the track length
+            if track.length:
+                minutes = int((track.length // 1000) // 60)
+                seconds = int((track.length // 1000) % 60)
+                duration = f"{minutes}:{seconds:02d}"
+            else:
+                duration = "--:--"
             
-            if len(player.queue) > 5:
-                embed.description += f"\n*...and {len(player.queue) - 5} more tracks in line!*"
+            current_text = f"## {current_track.title}\nArtist: **{current_track.author}**\nDuration: {duration}\nPosition: playing!"
+            current_section = ui.Section(
+                ui.TextDisplay(current_text),
+                accessory=ui.Thumbnail(current_track.artwork or "user_pfp_url")
+            )
+            queue_sections.append(current_section)
 
-        await interaction.response.send_message(embed=embed)
+        # 3. loop through the remaining items in the wavelink queue
+        for i, track in enumerate(player.queue):
+            # stop or paginate if the queue is massive (containers have item limits!)
+            if i >= 4: 
+                break
+        
+            position_text = "up next!" if i == 0 else f"#{i + 1}"
+            artist_name = track.author or "unknown"
+            
+            # 2. get the track length
+            if track.length:
+                minutes = int((track.length // 1000) // 60)
+                seconds = int((track.length // 1000) % 60)
+                duration = f"{minutes}:{seconds:02d}"
+            else:
+                duration = "--:--"
+    
+            # format the text block for this specific index
+            track_text = f"**{track.title}**\nArtist: *{artist_name}*\nDuration: {duration}\nPosition: {position_text}"
+    
+            # 4. wrap EACH item in its own section block with its own thumbnail accessory
+            track_section = ui.Section(
+                ui.TextDisplay(track_text),
+                accessory=ui.Thumbnail(track.artwork or "fallback_box_url")
+            )
+    
+            # append the finished index section block to our master list
+            queue_sections.append(track_section)
 
+        # 5. unpack the finished sections list directly into the final container
+        # the asterisk (*) unpacks the list items as individual positional arguments!
+        container = ui.Container(
+            *queue_sections,
+            accent_color=discord.Color.from_str("#2C2C2C")
+        )
+
+        # 6. send the finished container framework over the interaction pipe
+        await interaction.response.send_message(view=container)
     except Exception as e:
-        await interaction.response.send_message(f"couldn't read the waiting list: `{e}`", ephemeral=True)
+        await interaction.response.send_message(f"so i kinda failed to show what's next: `{e}`", ephemeral=True)
 
 @bot.tree.command(name="play-file", description="give me your audio file :)")
 @app_commands.describe(attachment="drag and drop or select an audio file (.mp3, .wav, .ogg, etc.) from your device")
