@@ -927,7 +927,74 @@ async def now_playing(interaction: discord.Interaction):
     current_track = player.current
     embed = NowPlayingView(current_track, interaction.user)
     await interaction.response.send_message(view=embed)
-    
+
+class LoopStatusView(ui.LayoutView):
+    def __init__(self, mode: str, track, user: discord.User):
+        super().__init__()
+        
+        user_handle = f"@{user.name}"
+        
+        # determine which image to use for the right-side thumbnail based on your rules
+        if mode == "current":
+            if track and hasattr(track, 'artwork') and track.artwork:
+                thumbnail_url = track.artwork
+            else:
+                # fallback picture placeholder if the track lacks artwork
+                thumbnail_url = "https://cdn.discordapp.com/attachments/1454299112181600299/1520232653503201331/-sIJRmHN.jpg?ex=6a40727d&is=6a3f20fd&hm=56a9548e90f38e4f26adc02dfddd5d28542fd0a928eb8578ecc564aac0976882&"
+            
+            card_text = f"-# requested by {user_handle}\n### loop: current song\nthe current song will now loop forever :3"
+            accent = discord.Color.from_str("#5C9F05") # matching your active playing aesthetic
+            
+        elif mode == "queue":
+            thumbnail_url = user.display_avatar.url
+            card_text = f"-# requested by {user_handle}\n### loop: queue\nthe entire queue will now loop :o"
+            accent = discord.Color.from_str("#85C2F0")
+            
+        else: # off
+            thumbnail_url = user.display_avatar.url
+            card_text = f"-# requested by {user_handle}\n### loop: off\nloop has been turned off :P"
+            accent = discord.Color.from_str("#FF0000")
+
+        # assemble the clean card layout matching image_188ed5.png
+        container = ui.Container(
+            ui.Section(
+                ui.TextDisplay(card_text),
+                accessory=ui.Thumbnail(thumbnail_url)
+            ),
+            accent_color=accent
+        )
+        
+        self.add_item(container)
+
+# slash command implementation for your bot.py tree
+@bot.tree.command(name="loop", description="change the loop mode for the player")
+@app_commands.choices(mode=[
+    app_commands.Choice(name="current song", value="current"),
+    app_commands.Choice(name="queue", value="queue"),
+    app_commands.Choice(name="off", value="off")
+])
+async def loop_cmd(interaction: discord.Interaction, mode: app_commands.Choice[str]):
+    node = wavelink.Pool.get_node()
+    player: wavelink.Player = node.get_player(interaction.guild.id)
+
+    if not player:
+        await interaction.response.send_message("there's no active player running in this server!", ephemeral=True)
+        return
+
+    # handle the internal wavelink v3 queue boolean routing states
+    if mode.value == "current":
+        player.queue.loop = True
+        player.queue.loop_all = False
+    elif mode.value == "queue":
+        player.queue.loop = False
+        player.queue.loop_all = True
+    else: # off
+        player.queue.loop = False
+        player.queue.loop_all = False
+
+    # build and send the corresponding card layout using layoutview natively
+    view_embed = LoopStatusView(mode.value, player.current, interaction.user)
+    await interaction.response.send_message(view=view_embed)
 
 # "just make sure we're not getting silenced"
 # SONNNNNNNNNNNNNNNNNNNNNN😭😭😭 -kam
