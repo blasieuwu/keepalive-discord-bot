@@ -29,6 +29,10 @@ use misoyan's speakers :o
 | :--- | :--- |
 | `/play` | play some music on my speakers :D |
 | `/play-file` | give me your music file and i'll play it :3 |
+| `/queue` | view the queue |
+| `/replay` | repeat the song |
+| `/skip` | skip the song if its bad bleh |
+| `/previous` | play the previous song |
 
 oh btw, you can check [the node that powers her speakers](https://github.com/blasieuwu/misoyan-lavalink-node)
 
@@ -47,12 +51,12 @@ here are some cool commands you can use:
 
 ---
 
-## developer-only commands (blasie only)
+## server owner/administrator/blasie-only commands
 
 | command | description |
 | :--- | :--- |
 | `/say` | i can say whatever you will tell me :3 |
-| `/suicide` | **dont ever run this on m̶̗̼͕̙͈̙͔̫̗̦̬̈̔̉͊ͅȅ̵̻̟̙͈̗̚͜** |
+| `/suicide` | **dont ever run this on m̶̗̼͕̙͈̙͔̫̗̦̬̈̔̉͊ͅȅ̵̻̟̙͈̗̚͜** (blasie-only) |
 | `/settings` | change stuff inside me :o |
 | `/restrict` | **dont end up in this list.** |
 
