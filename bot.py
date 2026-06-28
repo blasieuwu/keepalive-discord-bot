@@ -647,8 +647,6 @@ async def view_queue(interaction: discord.Interaction):
         if not player or not player.connected:
             await interaction.response.send_message("i'm not in a vc. you expect me to view 20 pieces of nothing?", ephemeral=True)
             return
-
-        embed = discord.Embed(title="misoyan's waiting line", color=0xffcc80)
         
         # 1. initialize an empty list to hold your finished section blocks
         queue_sections = []
@@ -658,9 +656,9 @@ async def view_queue(interaction: discord.Interaction):
             current_track = player.current
             # add a clean header section for the active track
             # 2. get the track length
-            if track.length:
-                minutes = int((track.length // 1000) // 60)
-                seconds = int((track.length // 1000) % 60)
+            if current_track.length:
+                minutes = int((current_track.length // 1000) // 60)
+                seconds = int((current_track.length // 1000) % 60)
                 duration = f"{minutes}:{seconds:02d}"
             else:
                 duration = "--:--"
