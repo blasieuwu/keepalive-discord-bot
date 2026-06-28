@@ -638,50 +638,79 @@ async def replay_track(interaction: discord.Interaction):
     except Exception as e:
         await interaction.response.send_message(f"couldn't replay: `{e}`", ephemeral=True)
 
-class SongQueue(discord.ui.View):
-    def __init__(self, player, user: discord.User):
-        super().__init__(timeout=60.0)
-        self.player = player
-        self.user = user
-        
-        # build the layout inside the initializer!
-        self.build_queue_layout()
+class SongQueue(ui.LayoutView):
+    def __init__(self, player, user):
+        super().__init__()
 
-    def build_queue_layout(self):
         queue_sections = []
 
         # 1. current track header block
-        if self.player.current:
-            current_track = self.player.current
-            current_text = f"**{current_track.title}**\nArtist: *{current_track.author or 'unknown'}*\nPosition: playing!"
+        if player.current:
+            current_track = player.current
+            
+            # handle current track artwork/fallback
+            if hasattr(current_track, 'artwork') and current_track.artwork:
+                current_cover = current_track.artwork
+            else:
+                current_cover = "https://cdn.discordapp.com/attachments/1454299112181600299/1520232653503201331/-sIJRmHN.jpg?ex=6a40727d&is=6a3f20fd&hm=56a9548e90f38e4f26adc02dfddd5d28542fd0a928eb8578ecc564aac0976882&"
+
+            # handle current track duration calculation
+            if current_track.length:
+                curr_min = int((current_track.length // 1000) // 60)
+                curr_sec = int((current_track.length // 1000) % 60)
+                curr_duration = f"{curr_min}:{curr_sec:02d}"
+            else:
+                curr_duration = "97:663? (unknown)"
+
+            current_text = f"## {current_track.title}\nArtist: **{current_track.author or 'unknown'}**\nDuration: {curr_duration}\nPosition: playing!"
+            
+            # append as an individual section with a right-aligned thumbnail accessory
             queue_sections.append(
                 ui.Section(
                     ui.TextDisplay(current_text),
-                    accessory=ui.Thumbnail(current_track.artwork or "fallback_url")
+                    accessory=ui.Thumbnail(current_cover)
                 )
             )
 
-        # 2. queue items loop block
-        for i, track in enumerate(self.player.queue):
-            if i >= 4:  # layout limit ceiling
+        # 2. queue items loop block (caps at 4 items to keep the card compact)
+        for i, track in enumerate(player.queue):
+            if i >= 4:
                 break
+                
             position_text = "up next!" if i == 0 else f"#{i + 1}"
-            track_text = f"**{track.title}**\nArtist: *{track.author or 'unknown'}*\nPosition: {position_text}"
             
+            # handle upcoming track artwork/fallback (using a 240x240 grey placeholder box if missing)
+            if hasattr(track, 'artwork') and track.artwork:
+                track_cover = track.artwork
+            else:
+                track_cover = "https://placehold.co/240x240/eaeaea/969696.png?text=240+x+240"
+
+            # handle upcoming track duration calculation
+            if track.length:
+                t_min = int((track.length // 1000) // 60)
+                t_sec = int((track.length // 1000) % 60)
+                track_duration = f"{t_min}:{t_sec:02d}"
+            else:
+                track_duration = "97:663? (unknown)"
+
+            track_text = f"## {track.title}\nArtist: **{track.author or 'unknown'}**\nDuration: {track_duration}\nPosition: {position_text}"
+            
+            # wrap each distinct track index into its own section layout block
             queue_sections.append(
                 ui.Section(
                     ui.TextDisplay(track_text),
-                    accessory=ui.Thumbnail(track.artwork or "fallback_url")
+                    accessory=ui.Thumbnail(track_cover)
                 )
             )
 
-        # 3. bind the container layout directly to the view instance!
-        # we attach it to self so the discord rendering engine detects it natively
-        self.container = ui.Container(
+        # 3. assemble everything inside the dark master container
+        container = ui.Container(
             *queue_sections,
             accent_color=discord.Color.from_str("#2C2C2C")
         )
-        
+
+        # 4. register it directly via the LayoutView framework pipeline
+        self.add_item(container)
 
 @bot.tree.command(name="queue", description="see what songs are lined up next")
 async def view_queue(interaction: discord.Interaction):
